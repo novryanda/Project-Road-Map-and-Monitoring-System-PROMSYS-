@@ -17,15 +17,13 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    if (process.env.NODE_ENV === "development") {
-      return [
-        {
-          source: "/api/:path*",
-          destination: "http://localhost:3001/api/:path*",
-        },
-      ];
-    }
-    return [];
+    const target = process.env.INTERNAL_API_URL || "http://localhost:3001";
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${target}/api/:path*`,
+      },
+    ];
   },
 };
 

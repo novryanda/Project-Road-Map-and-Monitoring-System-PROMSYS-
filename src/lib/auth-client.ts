@@ -2,10 +2,10 @@ import { createAuthClient } from "better-auth/react";
 import { adminClient } from "better-auth/client/plugins";
 import { env } from "@/env";
 
-// In production, NEXT_PUBLIC_API_URL should be the full BE URL (e.g. https://api.netkrida.cloud)
-// In development, we use "" (relative) to leverage Next.js rewrites/proxy
+// We use "" (relative) to leverage Next.js rewrites/proxy both in dev and prod
+// This ensures cookies are handled correctly on the same origin (promsys.netkrida.cloud)
 export const authClient = createAuthClient({
-  baseURL: process.env.NODE_ENV === "development" ? "" : (env.NEXT_PUBLIC_API_URL ?? ""),
+  baseURL: "",
   plugins: [adminClient()],
 });
 
