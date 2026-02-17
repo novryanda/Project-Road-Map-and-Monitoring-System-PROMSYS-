@@ -1,7 +1,7 @@
-import "./src/env.ts";
+import "./src/env";
+import type { NextConfig } from "next";
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: true,
   compiler: {
