@@ -23,7 +23,7 @@ export interface Team {
 export function useTeams(page = 1, size = 10) {
   return useQuery<PaginatedResponse<Team[]>>({
     queryKey: ["teams", page, size],
-    queryFn: () => api.get("/teams", { params: { page, size } }).then((r) => r.data),
+    queryFn: () => api.get("/teams", { params: { page, size } }).then((r) => r as any),
   });
 }
 

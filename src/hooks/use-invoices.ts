@@ -43,7 +43,7 @@ export function useInvoices(params?: { type?: string; status?: string; projectId
   };
   return useQuery<PaginatedResponse<Invoice[]>>({
     queryKey: ["invoices", queryParams],
-    queryFn: () => api.get("/invoices", { params: queryParams }).then((r) => r.data),
+    queryFn: () => api.get("/invoices", { params: queryParams }).then((r) => r as any),
   });
 }
 

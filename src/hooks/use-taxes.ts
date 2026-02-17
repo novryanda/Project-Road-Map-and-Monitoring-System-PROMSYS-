@@ -22,7 +22,7 @@ export function useCreateTax() {
   return useMutation({
     mutationFn: (data: { name: string; percentage: number; isActive?: boolean }) =>
       api.post("/taxes", data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"], exact: false }),
   });
 }
 
@@ -31,7 +31,7 @@ export function useUpdateTax() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; percentage?: number; isActive?: boolean }) =>
       api.patch(`/taxes/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"], exact: false }),
   });
 }
 
@@ -39,6 +39,6 @@ export function useDeleteTax() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/taxes/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"], exact: false }),
   });
 }

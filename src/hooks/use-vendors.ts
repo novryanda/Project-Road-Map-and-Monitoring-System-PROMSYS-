@@ -12,21 +12,24 @@ export interface Vendor {
   email: string | null;
   categoryId: string;
   category: Category;
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: string;
   updatedAt: string;
+  googleMapsUrl?: string | null;
 }
 
 export function useVendors(page = 1, size = 10) {
   return useQuery<PaginatedResponse<Vendor[]>>({
     queryKey: ["vendors", page, size],
-    queryFn: () => api.get("/vendors", { params: { page, size } }).then((r) => r.data),
+    queryFn: () => api.get("/vendors", { params: { page, size } }),
   });
 }
 
 export function useVendor(id: string) {
   return useQuery<Vendor>({
     queryKey: ["vendors", id],
-    queryFn: () => api.get(`/vendors/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/vendors/${id}`),
     enabled: !!id,
   });
 }

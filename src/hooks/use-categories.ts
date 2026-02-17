@@ -24,7 +24,7 @@ export function useCreateCategory() {
   return useMutation({
     mutationFn: (data: { name: string; type: "INCOME" | "EXPENSE" }) =>
       api.post("/categories", data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"], exact: false }),
   });
 }
 
@@ -33,7 +33,7 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; type?: "INCOME" | "EXPENSE" }) =>
       api.patch(`/categories/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"], exact: false }),
   });
 }
 
@@ -41,6 +41,6 @@ export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/categories/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"], exact: false }),
   });
 }

@@ -42,7 +42,11 @@ import { useCategories } from "@/hooks/use-categories";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 
-export function VendorTable() {
+interface VendorTableProps {
+  onVendorSelect?: (lat: number, lng: number) => void;
+}
+
+export function VendorTable({ onVendorSelect }: VendorTableProps) {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
   const { data: vendorsRes, isLoading } = useVendors(page, size);
@@ -55,13 +59,13 @@ export function VendorTable() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Vendor | null>(null);
-  const [form, setForm] = useState({ name: "", location: "", contactPerson: "", phone: "", email: "", categoryId: "" });
+  const [form, setForm] = useState({ name: "", location: "", contactPerson: "", phone: "", email: "", categoryId: "", latitude: "", longitude: "" });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ name: "", location: "", contactPerson: "", phone: "", email: "", categoryId: "" });
+    setForm({ name: "", location: "", contactPerson: "", phone: "", email: "", categoryId: "", latitude: "", longitude: "" });
     setDialogOpen(true);
   };
 
@@ -74,6 +78,8 @@ export function VendorTable() {
       phone: v.phone || "",
       email: v.email || "",
       categoryId: v.categoryId || "",
+      latitude: v.latitude ? String(v.latitude) : "",
+      longitude: v.longitude ? String(v.longitude) : "",
     });
     setDialogOpen(true);
   };
@@ -87,6 +93,8 @@ export function VendorTable() {
         phone: form.phone || undefined,
         email: form.email || undefined,
         categoryId: form.categoryId || undefined,
+        latitude: form.latitude ? parseFloat(form.latitude) : undefined,
+        longitude: form.longitude ? parseFloat(form.longitude) : undefined,
       };
       if (editItem) {
         await updateVendor.mutateAsync({ id: editItem.id, ...payload });
@@ -117,7 +125,14 @@ export function VendorTable() {
       accessorKey: "name",
       header: "Vendor Name",
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
+        <div
+          className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+          onClick={() => {
+            if (row.original.latitude && row.original.longitude && onVendorSelect) {
+              onVendorSelect(row.original.latitude, row.original.longitude);
+            }
+          }}
+        >
           <Building2 className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">{row.original.name}</span>
         </div>
@@ -168,6 +183,9 @@ export function VendorTable() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => openEdit(row.original)}>Edit</DropdownMenuItem>
+            <DropdownMenuItem disabled>
+              Detail (Soon)
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={() => { setDeleteTarget(row.original); setDeleteDialogOpen(true); }}>
               Delete
@@ -233,7 +251,7 @@ export function VendorTable() {
                 <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City" />
               </div>
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>Category *</Label>
                 <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
@@ -258,10 +276,33 @@ export function VendorTable() {
                 <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="vendor@email.com" />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Latitude</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={form.latitude}
+                  onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+                  placeholder="-6.2088"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Longitude</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={form.longitude}
+                  onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+                  placeholder="106.8456"
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!form.name.trim() || createVendor.isPending || updateVendor.isPending}>
+            <Button onClick={handleSubmit} disabled={!form.name.trim() || !form.categoryId || createVendor.isPending || updateVendor.isPending}>
               {editItem ? "Save Changes" : "Create"}
             </Button>
           </DialogFooter>

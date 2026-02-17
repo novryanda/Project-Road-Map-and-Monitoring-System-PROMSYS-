@@ -43,14 +43,14 @@ import { PaginatedResponse } from "@/types/api";
 export function useTasks(page = 1, size = 10) {
   return useQuery<PaginatedResponse<Task[]>>({
     queryKey: ["tasks", page, size],
-    queryFn: () => api.get("/tasks", { params: { page, size } }).then((r) => r.data),
+    queryFn: () => api.get("/tasks", { params: { page, size } }).then((r) => r as any),
   });
 }
 
 export function useProjectTasks(projectId: string, page = 1, size = 10) {
   return useQuery<PaginatedResponse<Task[]>>({
     queryKey: ["tasks", "project", projectId, page, size],
-    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r) => r.data),
+    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r) => r as any),
     enabled: !!projectId,
   });
 }

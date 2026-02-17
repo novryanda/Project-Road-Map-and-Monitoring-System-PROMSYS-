@@ -16,7 +16,7 @@ export interface Notification {
 export function useNotifications(page = 1, size = 20) {
   return useQuery<PaginatedResponse<Notification[]>>({
     queryKey: ["notifications", page, size],
-    queryFn: () => api.get("/notifications", { params: { page, size } }).then((r) => r.data),
+    queryFn: () => api.get("/notifications", { params: { page, size } }).then((r) => r as any),
   });
 }
 

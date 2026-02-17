@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { PaginatedResponse } from "@/types/api";
+import { Task } from "./use-tasks";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -71,7 +72,11 @@ export interface ProjectUser {
 export function useProjects(page = 1, size = 10) {
   return useQuery<PaginatedResponse<Project[]>>({
     queryKey: ["projects", page, size],
-    queryFn: () => api.get("/projects", { params: { page, size } }).then((r) => r.data),
+    queryFn: () =>
+      api.get("/projects", { params: { page, size } }).then((r) => {
+        console.log("[useProjects] API Response:", r);
+        return r as any;
+      }),
   });
 }
 
@@ -129,10 +134,10 @@ export function useDeleteProject() {
   });
 }
 
-export function useProjectMembers(projectId: string) {
-  return useQuery<ProjectMember[]>({
-    queryKey: ["projects", projectId, "members"],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then((r) => r.data),
+export function useProjectTasks(projectId: string, page = 1, size = 10) {
+  return useQuery<PaginatedResponse<Task[]>>({
+    queryKey: ["tasks", "project", projectId, page, size],
+    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r) => r as any),
     enabled: !!projectId,
   });
 }
