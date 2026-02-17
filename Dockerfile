@@ -16,6 +16,7 @@ RUN \
     npm install; \
   fi
 
+
 # ---- Stage 2: Build ----
 FROM node:22-alpine AS builder
 
@@ -24,12 +25,17 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build argument for API URL (needed at build time for Next.js)
-# MUST be provided during docker build, e.g.: --build-arg NEXT_PUBLIC_API_URL=https://api.netkrida.cloud
+# 🔥 IMPORTANT: Declare build arg
 ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# 🔥 Make it available to Next.js during build
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+# Optional: Debug (you can remove later)
+RUN echo "Building with API URL: $NEXT_PUBLIC_API_URL"
 
 RUN npm run build
+
 
 # ---- Stage 3: Production ----
 FROM node:22-alpine AS runner
@@ -42,15 +48,16 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy the standalone output
+# Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+ENV HOSTNAME=0.0.0.0
 
 CMD ["node", "server.js"]
