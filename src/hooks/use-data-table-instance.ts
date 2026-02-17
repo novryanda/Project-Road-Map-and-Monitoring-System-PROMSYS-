@@ -22,6 +22,8 @@ type UseDataTableInstanceProps<TData, TValue> = {
   defaultPageIndex?: number;
   defaultPageSize?: number;
   getRowId?: (row: TData, index: number) => string;
+  manualPagination?: boolean;
+  pageCount?: number;
 };
 
 export function useDataTableInstance<TData, TValue>({
@@ -31,6 +33,8 @@ export function useDataTableInstance<TData, TValue>({
   defaultPageIndex,
   defaultPageSize,
   getRowId,
+  manualPagination,
+  pageCount,
 }: UseDataTableInstanceProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -58,6 +62,8 @@ export function useDataTableInstance<TData, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
+    manualPagination,
+    pageCount,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

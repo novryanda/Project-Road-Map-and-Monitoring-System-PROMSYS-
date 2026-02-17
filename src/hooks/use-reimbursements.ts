@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { PaginatedResponse } from "@/types/api";
 
 export interface Reimbursement {
   id: string;
@@ -25,10 +26,15 @@ export interface Reimbursement {
   updatedAt: string;
 }
 
-export function useReimbursements(params?: { status?: string; projectId?: string }) {
-  return useQuery<Reimbursement[]>({
-    queryKey: ["reimbursements", params],
-    queryFn: () => api.get("/reimbursements", { params }).then((r) => r.data),
+export function useReimbursements(params?: { status?: string; projectId?: string; page?: number; size?: number }) {
+  const queryParams = {
+    ...params,
+    page: params?.page ?? 1,
+    size: params?.size ?? 10,
+  };
+  return useQuery<PaginatedResponse<Reimbursement[]>>({
+    queryKey: ["reimbursements", queryParams],
+    queryFn: () => api.get("/reimbursements", { params: queryParams }).then((r) => r.data),
   });
 }
 

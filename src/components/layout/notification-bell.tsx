@@ -31,7 +31,8 @@ const TYPE_ICONS: Record<string, string> = {
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const { data: notifications = [] } = useNotifications();
+  const { data: notificationsRes } = useNotifications();
+  const notifications = notificationsRes?.data || [];
   const { data: unreadData } = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
@@ -84,9 +85,8 @@ export function NotificationBell() {
               {notifications.slice(0, 20).map((n) => (
                 <button
                   key={n.id}
-                  className={`flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
-                    !n.isRead ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
-                  }`}
+                  className={`flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${!n.isRead ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                    }`}
                   onClick={() => handleClick(n)}
                 >
                   <span className="mt-0.5 text-base">{TYPE_ICONS[n.type] || "📢"}</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { Badge } from "@/components/ui/badge";
@@ -62,8 +62,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ReimbursementPage() {
-  const { data: reimbursements = [], isLoading } = useReimbursements();
-  const { data: projects = [] } = useProjects();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
+  const { data: reimbursementsRes, isLoading } = useReimbursements({ page, size });
+  const reimbursements = reimbursementsRes?.data || [];
+  const paging = reimbursementsRes?.paging;
+  const { data: projectsRes } = useProjects(1, 100);
+  const projects = projectsRes?.data || [];
   const { data: categories = [] } = useCategories("EXPENSE");
   const createReimbursement = useCreateReimbursement();
   const approveReimbursement = useApproveReimbursement();
@@ -210,7 +215,19 @@ export default function ReimbursementPage() {
     },
   ];
 
-  const table = useDataTableInstance({ data: reimbursements, columns, getRowId: (r) => r.id });
+  const table = useDataTableInstance({
+    data: reimbursements,
+    columns,
+    getRowId: (r) => r.id,
+    manualPagination: true,
+    pageCount: paging?.total_page ?? 1,
+  });
+
+  const tableState = table.getState().pagination;
+  React.useEffect(() => {
+    setPage(tableState.pageIndex + 1);
+    setSize(tableState.pageSize);
+  }, [tableState.pageIndex, tableState.pageSize]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="text-muted-foreground">Loading reimbursements...</div></div>;

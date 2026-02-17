@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +54,11 @@ interface Team {
 }
 
 export default function TeamsPage() {
-  const { data: teams = [], isLoading } = useTeams();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
+  const { data: teamsRes, isLoading } = useTeams(page, size);
+  const teams = teamsRes?.data || [];
+  const paging = teamsRes?.paging;
   const createTeam = useCreateTeam();
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
@@ -190,7 +194,15 @@ export default function TeamsPage() {
     data: teams,
     columns,
     getRowId: (row) => row.id,
+    manualPagination: true,
+    pageCount: paging?.total_page ?? 1,
   });
+
+  const tableState = table.getState().pagination;
+  React.useEffect(() => {
+    setPage(tableState.pageIndex + 1);
+    setSize(tableState.pageSize);
+  }, [tableState.pageIndex, tableState.pageSize]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="text-muted-foreground">Loading teams...</div></div>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -61,10 +61,16 @@ export default function InvoicePage() {
   const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const { data: invoices = [], isLoading } = useInvoices({
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
+  const { data: invoicesRes, isLoading } = useInvoices({
     type: typeFilter || undefined,
     status: statusFilter || undefined,
+    page,
+    size,
   });
+  const invoices = invoicesRes?.data || [];
+  const paging = invoicesRes?.paging;
   const deleteInvoice = useDeleteInvoice();
   const updateStatus = useUpdateInvoiceStatus();
 
@@ -185,7 +191,20 @@ export default function InvoicePage() {
     },
   ];
 
-  const table = useDataTableInstance({ data: invoices, columns, getRowId: (r) => r.id });
+  const table = useDataTableInstance({
+    data: invoices,
+    columns,
+    getRowId: (r) => r.id,
+    manualPagination: true,
+    pageCount: paging?.total_page ?? 1,
+  });
+
+  // Sync table pagination state with our React Query state
+  const tableState = table.getState().pagination;
+  React.useEffect(() => {
+    setPage(tableState.pageIndex + 1);
+    setSize(tableState.pageSize);
+  }, [tableState.pageIndex, tableState.pageSize]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="text-muted-foreground">Loading invoices...</div></div>;

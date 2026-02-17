@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { PaginatedResponse } from "@/types/api";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -67,10 +68,10 @@ export interface ProjectUser {
   role: string;
 }
 
-export function useProjects() {
-  return useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: () => api.get("/projects").then((r) => r.data),
+export function useProjects(page = 1, size = 10) {
+  return useQuery<PaginatedResponse<Project[]>>({
+    queryKey: ["projects", page, size],
+    queryFn: () => api.get("/projects", { params: { page, size } }).then((r) => r.data),
   });
 }
 

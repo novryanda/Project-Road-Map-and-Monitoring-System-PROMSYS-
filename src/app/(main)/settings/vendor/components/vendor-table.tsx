@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 
 export function VendorTable() {
-  const { data: vendors = [], isLoading } = useVendors();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
+  const { data: vendorsRes, isLoading } = useVendors(page, size);
+  const vendors = vendorsRes?.data || [];
+  const paging = vendorsRes?.paging;
   const { data: categories = [] } = useCategories("EXPENSE");
   const createVendor = useCreateVendor();
   const updateVendor = useUpdateVendor();
@@ -178,7 +182,15 @@ export function VendorTable() {
     data: vendors,
     columns,
     getRowId: (row) => row.id,
+    manualPagination: true,
+    pageCount: paging?.total_page ?? 1,
   });
+
+  const tableState = table.getState().pagination;
+  React.useEffect(() => {
+    setPage(tableState.pageIndex + 1);
+    setSize(tableState.pageSize);
+  }, [tableState.pageIndex, tableState.pageSize]);
 
   return (
     <>

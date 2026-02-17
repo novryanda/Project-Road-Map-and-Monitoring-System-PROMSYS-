@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { PaginatedResponse } from "@/types/api";
 
 export interface TeamMember {
   id: string;
@@ -19,10 +20,10 @@ export interface Team {
   updatedAt: string;
 }
 
-export function useTeams() {
-  return useQuery<Team[]>({
-    queryKey: ["teams"],
-    queryFn: () => api.get("/teams").then((r) => r.data),
+export function useTeams(page = 1, size = 10) {
+  return useQuery<PaginatedResponse<Team[]>>({
+    queryKey: ["teams", page, size],
+    queryFn: () => api.get("/teams", { params: { page, size } }).then((r) => r.data),
   });
 }
 

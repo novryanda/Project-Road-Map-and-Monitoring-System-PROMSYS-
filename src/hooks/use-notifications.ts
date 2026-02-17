@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { PaginatedResponse } from "@/types/api";
 
 export interface Notification {
   id: string;
@@ -12,10 +13,10 @@ export interface Notification {
   createdAt: string;
 }
 
-export function useNotifications() {
-  return useQuery<Notification[]>({
-    queryKey: ["notifications"],
-    queryFn: () => api.get("/notifications").then((r) => r.data),
+export function useNotifications(page = 1, size = 20) {
+  return useQuery<PaginatedResponse<Notification[]>>({
+    queryKey: ["notifications", page, size],
+    queryFn: () => api.get("/notifications", { params: { page, size } }).then((r) => r.data),
   });
 }
 

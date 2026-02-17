@@ -101,8 +101,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const router = useRouter();
   const { data: project, isLoading } = useProject(id);
-  const { data: tasks = [] } = useProjectTasks(id);
-  const { data: invoices = [] } = useInvoices({ projectId: id });
+  const { data: tasksRes } = useProjectTasks(id, 1, 100);
+  const tasks = tasksRes?.data || [];
+  const { data: invoicesRes } = useInvoices({ projectId: id, page: 1, size: 100 });
+  const invoices = invoicesRes?.data || [];
   const { data: documents = [] } = useProjectDocuments(id);
   const { data: activities = [] } = useProjectActivities(id);
   const updateProject = useUpdateProject();

@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useVendors } from "@/hooks/use-vendors";
 
 export function VendorHeader() {
-    const { data: vendors = [] } = useVendors();
+    const { data: vendorsRes } = useVendors(1, 100);
+    const vendors = vendorsRes?.data || [];
     const totalVendors = vendors.length;
     const withLocation = vendors.filter((v) => v.location).length;
     const withContact = vendors.filter((v) => v.email || v.phone).length;

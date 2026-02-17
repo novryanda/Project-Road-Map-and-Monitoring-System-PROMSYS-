@@ -48,11 +48,14 @@ export default function CreateInvoicePage() {
   const createInvoice = useCreateInvoice();
   const uploadInvoiceAttachment = useUploadInvoiceAttachment();
   const uploadReimbursementAttachment = useUploadReimbursementAttachment();
-  const { data: projects = [] } = useProjects();
+  const { data: projectsRes } = useProjects(1, 100);
+  const projects = projectsRes?.data || [];
   const { data: categories = [] } = useCategories();
   const { data: taxes = [] } = useTaxes();
-  const { data: vendors = [] } = useVendors();
-  const { data: reimbursements = [] } = useReimbursements({ status: "APPROVED" });
+  const { data: vendorsRes } = useVendors(1, 100);
+  const vendors = vendorsRes?.data || [];
+  const { data: reimbursementsRes } = useReimbursements({ status: "APPROVED", page: 1, size: 100 });
+  const reimbursements = reimbursementsRes?.data || [];
 
   const [form, setForm] = useState({
     type: "EXPENSE" as "INCOME" | "EXPENSE",
@@ -177,7 +180,7 @@ export default function CreateInvoicePage() {
                   <Label>Type *</Label>
                   <Select
                     value={form.type}
-                    onValueChange={(v) =>
+                    onValueChange={(v: string) =>
                       setForm({
                         ...form,
                         type: v as "INCOME" | "EXPENSE",
@@ -198,7 +201,7 @@ export default function CreateInvoicePage() {
                   <Label>Project</Label>
                   <Select
                     value={form.projectId}
-                    onValueChange={(v) => setForm({ ...form, projectId: v })}
+                    onValueChange={(v: string) => setForm({ ...form, projectId: v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select project" />
@@ -220,7 +223,7 @@ export default function CreateInvoicePage() {
                   <Label>Category *</Label>
                   <Select
                     value={form.categoryId}
-                    onValueChange={(v) => setForm({ ...form, categoryId: v })}
+                    onValueChange={(v: string) => setForm({ ...form, categoryId: v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -238,13 +241,13 @@ export default function CreateInvoicePage() {
                   <Label>Vendor</Label>
                   <Select
                     value={form.vendorId}
-                    onValueChange={(v) => setForm({ ...form, vendorId: v })}
+                    onValueChange={(v: string) => setForm({ ...form, vendorId: v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
-                      {vendors.map((v) => (
+                      {vendors.map((v: any) => (
                         <SelectItem key={v.id} value={v.id}>
                           {v.name}
                         </SelectItem>
@@ -270,7 +273,7 @@ export default function CreateInvoicePage() {
                   <Label>Tax</Label>
                   <Select
                     value={form.taxId}
-                    onValueChange={(v) => setForm({ ...form, taxId: v })}
+                    onValueChange={(v: string) => setForm({ ...form, taxId: v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="No tax" />

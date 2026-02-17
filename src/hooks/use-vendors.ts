@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { PaginatedResponse } from "@/types/api";
 import type { Category } from "./use-categories";
 
 export interface Vendor {
@@ -15,10 +16,10 @@ export interface Vendor {
   updatedAt: string;
 }
 
-export function useVendors() {
-  return useQuery<Vendor[]>({
-    queryKey: ["vendors"],
-    queryFn: () => api.get("/vendors").then((r) => r.data),
+export function useVendors(page = 1, size = 10) {
+  return useQuery<PaginatedResponse<Vendor[]>>({
+    queryKey: ["vendors", page, size],
+    queryFn: () => api.get("/vendors", { params: { page, size } }).then((r) => r.data),
   });
 }
 

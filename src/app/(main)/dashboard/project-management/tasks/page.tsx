@@ -91,8 +91,12 @@ const defaultForm = {
 };
 
 export default function TasksKanbanPage() {
-  const { data: tasks = [], isLoading } = useTasks();
-  const { data: projects = [] } = useProjects();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(50); // Larger size for Kanban
+  const { data: tasksRes, isLoading } = useTasks(page, size);
+  const tasks = tasksRes?.data || [];
+  const { data: projectsRes } = useProjects(1, 100); // Fetch up to 100 projects for the filter
+  const projects = projectsRes?.data || [];
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -381,11 +385,10 @@ export default function TasksKanbanPage() {
                           )}
                           {task.deadline && (
                             <span
-                              className={`text-xs ${
-                                new Date(task.deadline) < new Date() && task.status !== "DONE"
-                                  ? "text-red-600 font-medium"
-                                  : "text-muted-foreground"
-                              }`}
+                              className={`text-xs ${new Date(task.deadline) < new Date() && task.status !== "DONE"
+                                ? "text-red-600 font-medium"
+                                : "text-muted-foreground"
+                                }`}
                             >
                               {new Date(task.deadline).toLocaleDateString("id-ID", {
                                 day: "numeric",

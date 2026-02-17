@@ -33,10 +33,17 @@ export interface Invoice {
   updatedAt: string;
 }
 
-export function useInvoices(params?: { type?: string; status?: string; projectId?: string }) {
-  return useQuery<Invoice[]>({
-    queryKey: ["invoices", params],
-    queryFn: () => api.get("/invoices", { params }).then((r) => r.data),
+import { PaginatedResponse } from "@/types/api";
+
+export function useInvoices(params?: { type?: string; status?: string; projectId?: string; page?: number; size?: number }) {
+  const queryParams = {
+    ...params,
+    page: params?.page ?? 1,
+    size: params?.size ?? 10,
+  };
+  return useQuery<PaginatedResponse<Invoice[]>>({
+    queryKey: ["invoices", queryParams],
+    queryFn: () => api.get("/invoices", { params: queryParams }).then((r) => r.data),
   });
 }
 

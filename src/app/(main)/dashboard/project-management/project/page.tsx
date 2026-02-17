@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -75,7 +75,11 @@ const defaultForm = {
 
 export default function ProjectPage() {
   const router = useRouter();
-  const { data: projects = [], isLoading } = useProjects();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(10);
+  const { data: projectsRes, isLoading } = useProjects(page, size);
+  const projects = projectsRes?.data || [];
+  const paging = projectsRes?.paging;
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
@@ -256,7 +260,19 @@ export default function ProjectPage() {
     },
   ];
 
-  const table = useDataTableInstance({ data: projects, columns, getRowId: (r) => r.id });
+  const table = useDataTableInstance({
+    data: projects,
+    columns,
+    getRowId: (r) => r.id,
+    manualPagination: true,
+    pageCount: paging?.total_page ?? 1,
+  });
+
+  const tableState = table.getState().pagination;
+  React.useEffect(() => {
+    setPage(tableState.pageIndex + 1);
+    setSize(tableState.pageSize);
+  }, [tableState.pageIndex, tableState.pageSize]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><div className="text-muted-foreground">Loading projects...</div></div>;
