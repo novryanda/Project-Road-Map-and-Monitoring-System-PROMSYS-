@@ -25,10 +25,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 🔥 IMPORTANT: Declare build arg
-ARG NEXT_PUBLIC_API_URL
-
-# 🔥 Make it available to Next.js during build
+# Use a placeholder during build for runtime replacement
+ARG NEXT_PUBLIC_API_URL=APP_NEXT_PUBLIC_API_URL_PLACEHOLDER
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Skip env validation during build (env may not be fully available)
@@ -58,6 +56,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
 EXPOSE 3000
 
 ENV PORT=3000
@@ -67,4 +69,5 @@ ENV HOSTNAME=0.0.0.0
 # e.g. NEXT_PUBLIC_API_URL=https://api.netkrida.cloud
 # Do NOT hardcode it here — it must be injected by the container runtime
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]
