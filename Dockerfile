@@ -25,7 +25,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build argument for API URL (needed at build time for Next.js)
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+# MUST be provided during docker build, e.g.: --build-arg NEXT_PUBLIC_API_URL=https://api.netkrida.cloud
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
