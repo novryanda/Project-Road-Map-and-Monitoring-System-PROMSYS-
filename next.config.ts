@@ -16,8 +16,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Rewrites are now handled at the infrastructure level (Dokploy/Traefik)
-  // so that both FE and BE share the same domain and cookies.
+  async rewrites() {
+    if (!process.env.NEXT_PUBLIC_API_URL) return [];
+
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
