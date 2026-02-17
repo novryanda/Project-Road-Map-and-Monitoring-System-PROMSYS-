@@ -31,6 +31,9 @@ ARG NEXT_PUBLIC_API_URL
 # 🔥 Make it available to Next.js during build
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+# Skip env validation during build (env may not be fully available)
+ENV SKIP_ENV_VALIDATION=1
+
 # Optional: Debug (you can remove later)
 RUN echo "Building with API URL: $NEXT_PUBLIC_API_URL"
 
@@ -59,5 +62,9 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+
+# NEXT_PUBLIC_API_URL is set at runtime via Dokploy environment variables
+# e.g. NEXT_PUBLIC_API_URL=https://api.netkrida.cloud
+# Do NOT hardcode it here — it must be injected by the container runtime
 
 CMD ["node", "server.js"]
