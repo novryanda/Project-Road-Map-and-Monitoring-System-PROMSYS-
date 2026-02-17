@@ -16,15 +16,8 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async rewrites() {
-    const target = process.env.INTERNAL_API_URL || "http://localhost:3001";
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${target}/api/:path*`,
-      },
-    ];
-  },
+  // Rewrites are now handled at the infrastructure level (Dokploy/Traefik)
+  // so that both FE and BE share the same domain and cookies.
 };
 
 export default nextConfig;
