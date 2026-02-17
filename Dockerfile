@@ -7,13 +7,13 @@ COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 
 RUN \
   if [ -f pnpm-lock.yaml ]; then \
-    corepack enable pnpm && pnpm install --frozen-lockfile; \
+  corepack enable pnpm && pnpm install --frozen-lockfile; \
   elif [ -f yarn.lock ]; then \
-    yarn install --frozen-lockfile; \
+  yarn install --frozen-lockfile; \
   elif [ -f package-lock.json ]; then \
-    npm ci; \
+  npm ci; \
   else \
-    npm install; \
+  npm install; \
   fi
 
 
@@ -26,7 +26,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Use a placeholder during build for runtime replacement
-ARG NEXT_PUBLIC_API_URL=APP_NEXT_PUBLIC_API_URL_PLACEHOLDER
+ARG NEXT_PUBLIC_API_URL=http://APP_NEXT_PUBLIC_API_URL_PLACEHOLDER.com
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Skip env validation during build (env may not be fully available)
@@ -47,7 +47,7 @@ ENV NODE_ENV=production
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+  adduser --system --uid 1001 nextjs
 
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
