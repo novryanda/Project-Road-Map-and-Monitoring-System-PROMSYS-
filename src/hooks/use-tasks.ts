@@ -128,6 +128,8 @@ export function useUploadTaskAttachment() {
         headers: { "Content-Type": "multipart/form-data" },
       }).then((r) => r.data);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
   });
 }

@@ -45,6 +45,7 @@ import {
   useDeleteTask,
   useUpdateTaskStatus,
   useAddTaskComment,
+  useUploadTaskAttachment,
 } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
 import type { Task } from "@/hooks/use-tasks";
@@ -54,8 +55,15 @@ import {
   MessageSquare,
   MoreHorizontal,
   Plus,
+  Upload,
   Send,
   User,
+  Calendar,
+  Flag,
+  Layout,
+  Paperclip,
+  X,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -88,6 +96,7 @@ const defaultForm = {
   assignedToId: "",
   deadline: "",
   priority: "MEDIUM" as Task["priority"],
+  role: "", // Added role for filtering
 };
 
 export default function TasksKanbanPage() {
@@ -102,6 +111,7 @@ export default function TasksKanbanPage() {
   const deleteTask = useDeleteTask();
   const updateStatus = useUpdateTaskStatus();
   const addComment = useAddTaskComment();
+  const uploadAttachment = useUploadTaskAttachment();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Task | null>(null);
@@ -113,6 +123,11 @@ export default function TasksKanbanPage() {
   const [comment, setComment] = useState("");
   const [filterProject, setFilterProject] = useState("all");
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  // Submit Dialog State
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [submitTaskId, setSubmitTaskId] = useState("");
+  const [submitFile, setSubmitFile] = useState<File | null>(null);
 
   const { data: selectedTask } = useTask(selectedTaskId);
 
@@ -144,6 +159,7 @@ export default function TasksKanbanPage() {
       assignedToId: t.assignedToId,
       deadline: t.deadline ? t.deadline.split("T")[0] : "",
       priority: t.priority,
+      role: "", // We might not know the role easily without looking up member, but it's optional for edit
     });
     setDialogOpen(true);
   };
@@ -206,6 +222,47 @@ export default function TasksKanbanPage() {
     } catch {
       toast.error("Failed to add comment");
     }
+  };
+
+  const openSubmitDialog = (taskId: string) => {
+    setSubmitTaskId(taskId);
+    setSubmitFile(null);
+    setSubmitDialogOpen(true);
+  };
+
+  const handleSubmitTask = async () => {
+    if (!submitTaskId) return;
+    try {
+      // 1. Upload File if exists
+      if (submitFile) {
+        await uploadAttachment.mutateAsync({ taskId: submitTaskId, file: submitFile });
+      }
+
+      // 2. Update Status
+      await updateStatus.mutateAsync({ id: submitTaskId, status: "SUBMITTED" });
+
+      toast.success("Task submitted successfully");
+      setSubmitDialogOpen(false);
+    } catch {
+      toast.error("Failed to submit task");
+    }
+  };
+
+  // Helper to get unique roles from project members
+  const getProjectRoles = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project || !project.members) return [];
+    // Extract unique roles
+    const roles = Array.from(new Set(project.members.map((m) => m.role)));
+    return roles;
+  };
+
+  const getFilteredMembers = () => {
+    const project = projects.find((p) => p.id === form.projectId);
+    if (!project || !project.members) return [];
+
+    if (!form.role) return project.members;
+    return project.members.filter((m) => m.role === form.role);
   };
 
   // Drag & Drop handlers
@@ -326,7 +383,7 @@ export default function TasksKanbanPage() {
                               </DropdownMenuItem>
                             )}
                             {task.status === "IN_PROGRESS" && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(task.id, "SUBMITTED")}>
+                              <DropdownMenuItem onClick={() => openSubmitDialog(task.id)}>
                                 Submit
                               </DropdownMenuItem>
                             )}
@@ -341,7 +398,7 @@ export default function TasksKanbanPage() {
                               </>
                             )}
                             {task.status === "REVISION" && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(task.id, "SUBMITTED")}>
+                              <DropdownMenuItem onClick={() => openSubmitDialog(task.id)}>
                                 Re-submit
                               </DropdownMenuItem>
                             )}
@@ -453,6 +510,30 @@ export default function TasksKanbanPage() {
                 </Select>
               </div>
             )}
+
+            {/* Role Selection */}
+            {form.projectId && (
+              <div className="space-y-2">
+                <Label>Role Filter (Optional)</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm({ ...form, role: v === "_all" ? "" : v, assignedToId: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">All Roles</SelectItem>
+                    {getProjectRoles(form.projectId).map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Title *</Label>
               <Input
@@ -478,7 +559,7 @@ export default function TasksKanbanPage() {
                   <SelectValue placeholder="Select member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(projects.find((p) => p.id === form.projectId)?.members || []).map((m) => (
+                  {getFilteredMembers().map((m) => (
                     <SelectItem key={m.userId} value={m.userId}>
                       {m.user.name} ({m.user.email})
                     </SelectItem>
@@ -533,6 +614,36 @@ export default function TasksKanbanPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Submit Task Dialog */}
+      <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Task</DialogTitle>
+            <DialogDescription>
+              Upload your work to submit this task.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Attachment (Optional)</Label>
+              <Input
+                type="file"
+                onChange={(e) => setSubmitFile(e.target.files?.[0] || null)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload relevant files, screenshots, or documents.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmitTask} disabled={updateStatus.isPending || uploadAttachment.isPending}>
+              {(updateStatus.isPending || uploadAttachment.isPending) ? "Submitting..." : "Submit Task"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
@@ -556,91 +667,212 @@ export default function TasksKanbanPage() {
 
       {/* Task Detail Sheet */}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{selectedTask?.title || "Task"}</SheetTitle>
-            <SheetDescription>{selectedTask?.project?.name}</SheetDescription>
+        <SheetContent className="sm:max-w-xl p-0 flex flex-col gap-0 bg-white dark:bg-slate-950 border-l border-border shadow-2xl h-full">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Task Details</SheetTitle>
+            <SheetDescription>View and edit task details</SheetDescription>
           </SheetHeader>
-          {selectedTask && (
-            <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge
-                    className={PRIORITY_COLORS[selectedTask.status] || ""}
-                    variant="secondary"
-                  >
-                    {selectedTask.status.replace("_", " ")}
-                  </Badge>
+          {selectedTask ? (
+            <>
+              {/* Header (Fixed) */}
+              <div className="flex-none flex items-center justify-between px-6 py-4 border-b bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-10">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{selectedTask.project?.name}</span>
+                  <ChevronRight className="h-4 w-4" />
+                  <span>{selectedTask.id.slice(0, 8)}</span>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Priority</p>
-                  <Badge
-                    className={PRIORITY_COLORS[selectedTask.priority] || ""}
-                    variant="secondary"
-                  >
-                    {selectedTask.priority}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Assigned To</p>
-                  <p className="text-sm font-medium">{selectedTask.assignedTo?.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Deadline</p>
-                  <p className="text-sm font-medium">
-                    {selectedTask.deadline
-                      ? new Date(selectedTask.deadline).toLocaleDateString()
-                      : "-"}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <Badge className={PRIORITY_COLORS[selectedTask.status]}>{selectedTask.status.replace("_", " ")}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setDetailOpen(false); openEdit(selectedTask); }}>Edit Task</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive" onClick={() => { setDetailOpen(false); setDeleteTarget(selectedTask); setDeleteDialogOpen(true); }}>Delete Task</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailOpen(false)}>
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
 
-              {selectedTask.description && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm">{selectedTask.description}</p>
-                </div>
-              )}
+              {/* Scrollable Content (Flex-1) */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="p-6 space-y-8">
 
-              {/* Comments */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <MessageSquare className="h-4 w-4" />
-                  <p className="text-sm font-medium">
-                    Comments ({selectedTask.comments?.length || 0})
-                  </p>
-                </div>
-                <div className="space-y-2 mb-3">
-                  {selectedTask.comments?.map((c) => (
-                    <Card
-                      key={c.id}
-                      className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50"
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-start">
-                          <p className="text-xs font-medium">{c.user?.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(c.createdAt).toLocaleDateString()}
-                          </p>
+                  {/* Title */}
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 leading-tight">
+                      {selectedTask.title}
+                    </h2>
+
+                    {/* Properties Grid */}
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-8 p-4 bg-muted/30 rounded-lg border border-border/50">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                          <User className="h-3.5 w-3.5" /> Assignee
                         </div>
-                        <p className="text-sm mt-1">{c.content}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                            {selectedTask.assignedTo?.name?.charAt(0) || "?"}
+                          </div>
+                          <span className="text-sm font-medium">{selectedTask.assignedTo?.name}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                          <Calendar className="h-3.5 w-3.5" /> Due Date
+                        </div>
+                        <div className={`text-sm font-medium ${new Date(selectedTask.deadline) < new Date() && selectedTask.status !== "DONE" ? "text-red-600" : ""}`}>
+                          {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) : "-"}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                          <Flag className="h-3.5 w-3.5" /> Priority
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`h-2 w-2 rounded-full ${PRIORITY_DOT_COLORS[selectedTask.priority]}`} />
+                          <span className="text-sm font-medium">{selectedTask.priority}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                          <Layout className="h-3.5 w-3.5" /> Project
+                        </div>
+                        <span className="text-sm font-medium truncate max-w-[150px] block" title={selectedTask.project?.name}>
+                          {selectedTask.project?.name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      Description
+                    </h3>
+                    <div className="prose prose-sm dark:prose-invert text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {selectedTask.description || <span className="italic text-muted-foreground/60">No description provided.</span>}
+                    </div>
+                  </div>
+
+                  {/* Attachments */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Paperclip className="h-4 w-4" /> Attachments
+                    </h3>
+                    {!selectedTask.attachments?.length ? (
+                      <p className="text-sm text-muted-foreground italic">No attachments.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2">
+                        {selectedTask.attachments.map((att) => (
+                          <a
+                            key={att.id}
+                            href={att.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 p-3 rounded-md border border-border bg-white dark:bg-slate-900 hover:bg-muted/50 transition-colors group"
+                          >
+                            <div className="h-8 w-8 rounded bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                              <Upload className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate text-foreground group-hover:underline">{att.fileName}</p>
+                              <p className="text-xs text-muted-foreground">{(att.fileSize / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Comments */}
+                  <div className="space-y-4 pt-6 border-t">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" /> Activity & Comments
+                    </h3>
+
+                    <div className="space-y-6 relative ml-2">
+                      {/* Timeline Connector */}
+                      <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" />
+
+                      {selectedTask.comments?.map((c) => (
+                        <div key={c.id} className="relative pl-10">
+                          <div className="absolute left-0 top-0 h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center z-10">
+                            <span className="text-[10px] font-bold text-muted-foreground">
+                              {c.user.name.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="bg-muted/40 rounded-lg p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold">{c.user.name}</span>
+                              <span className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()} {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <p className="text-sm text-foreground">{c.content}</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {!selectedTask.comments?.length && (
+                        <p className="text-sm text-muted-foreground pl-10 italic">No activity yet.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Padding */}
+                  <div className="h-4" />
                 </div>
+              </div>
+
+              {/* Footer Actions (Fixed) */}
+              <div className="flex-none p-4 border-t bg-background z-10 flex flex-col gap-3 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                {/* Status Buttons */}
                 <div className="flex gap-2">
+                  {selectedTask.status === "TODO" && (
+                    <Button className="flex-1" onClick={() => handleStatusChange(selectedTask.id, "IN_PROGRESS")}>
+                      Start Work
+                    </Button>
+                  )}
+                  {(selectedTask.status === "IN_PROGRESS" || selectedTask.status === "REVISION") && (
+                    <Button className="flex-1" onClick={() => openSubmitDialog(selectedTask.id)}>
+                      Submit for Review
+                    </Button>
+                  )}
+                </div>
+
+                {/* Comment Input */}
+                <div className="relative">
                   <Input
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder="Add a comment..."
-                    className="flex-1"
+                    placeholder="Write a comment..."
+                    className="pr-12 bg-muted/50 border-transparent focus:bg-background transition-colors"
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(); }}
                   />
-                  <Button size="sm" onClick={handleAddComment} disabled={addComment.isPending}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-1 top-1 h-8 w-8 text-primary hover:bg-primary/10"
+                    onClick={handleAddComment}
+                    disabled={!comment.trim() || addComment.isPending}
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              Select a task to view details
             </div>
           )}
         </SheetContent>
