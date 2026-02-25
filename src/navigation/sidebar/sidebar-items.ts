@@ -51,7 +51,7 @@ export const sidebarItems: NavGroup[] = [
         title: "Default",
         url: "/dashboard/default",
         icon: LayoutDashboard,
-        allowedRoles: ["ADMIN",],
+        allowedRoles: ["ADMIN"],
       },
       {
         title: "CRM",
@@ -66,9 +66,9 @@ export const sidebarItems: NavGroup[] = [
         icon: FolderCheckIcon,
         allowedRoles: ["ADMIN", "PROJECTMANAGER", "EMPLOYEES"],
         subItems: [
-          { title: "Project", url: "/dashboard/project-management/project" },
-          { title: "Tasks", url: "/dashboard/project-management/tasks" },
-          { title: "Calendar", url: "/dashboard/project-management/calendar" },
+          { title: "Project", url: "/dashboard/project-management/project", allowedRoles: ["ADMIN", "PROJECTMANAGER"] },
+          { title: "Tasks", url: "/dashboard/project-management/tasks", allowedRoles: ["ADMIN", "PROJECTMANAGER", "EMPLOYEES"] },
+          { title: "Calendar", url: "/dashboard/project-management/calendar", allowedRoles: ["ADMIN", "PROJECTMANAGER", "EMPLOYEES"] },
           {
             title: "Teams",
             url: "/dashboard/project-management/teams",
@@ -93,12 +93,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Invoice",
         url: "/dashboard/invoice",
         icon: ReceiptText,
-        allowedRoles: ["ADMIN", "FINANCE", "PROJECTMANAGER"],
+        allowedRoles: ["ADMIN", "FINANCE", "PROJECTMANAGER", "EMPLOYEES"],
         subItems: [
           {
             title: "View Invoice",
             url: "/dashboard/invoice",
-            allowedRoles: ["ADMIN", "FINANCE", "PROJECTMANAGER"],
+            allowedRoles: ["ADMIN", "FINANCE"],
           },
           {
             title: "Create Invoice",
@@ -108,7 +108,7 @@ export const sidebarItems: NavGroup[] = [
           {
             title: "Reimbursement",
             url: "/dashboard/reimbursement",
-            comingSoon: true,
+            allowedRoles: ["ADMIN", "FINANCE", "PROJECTMANAGER", "EMPLOYEES"],
           },
         ],
       },
@@ -129,7 +129,7 @@ export const sidebarItems: NavGroup[] = [
         title: "Settings",
         url: "/settings",
         icon: Settings2Icon,
-        allowedRoles: ["ADMIN", "FINANCE",],
+        allowedRoles: ["ADMIN", "FINANCE"],
         subItems: [
           {
             title: "Category",

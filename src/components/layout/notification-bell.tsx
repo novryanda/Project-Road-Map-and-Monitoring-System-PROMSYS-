@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
@@ -15,18 +14,22 @@ import {
   useUnreadNotificationCount,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
+  useDeleteReadNotifications,
+  getNotificationLink,
 } from "@/hooks/use-notifications";
 import type { Notification } from "@/hooks/use-notifications";
 
 const TYPE_ICONS: Record<string, string> = {
   TASK_ASSIGNED: "📋",
-  TASK_STATUS_CHANGED: "🔄",
+  TASK_SUBMITTED: "📤",
+  TASK_APPROVED: "✅",
+  TASK_REVISION: "🔄",
   INVOICE_CREATED: "🧾",
-  INVOICE_STATUS_CHANGED: "💰",
   REIMBURSEMENT_SUBMITTED: "📝",
-  REIMBURSEMENT_STATUS_CHANGED: "✅",
-  PROJECT_MEMBER_ADDED: "👥",
-  GENERAL: "📢",
+  REIMBURSEMENT_APPROVED: "✅",
+  REIMBURSEMENT_REJECTED: "❌",
+  REIMBURSEMENT_PAID: "💳",
+  PROJECT_ASSIGNED: "👥",
 };
 
 export function NotificationBell() {
@@ -36,21 +39,28 @@ export function NotificationBell() {
   const { data: unreadData } = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const deleteRead = useDeleteReadNotifications();
 
   const unreadCount = unreadData?.count ?? 0;
+  const readCount = notifications.filter((n) => n.isRead).length;
 
   const handleClick = async (notification: Notification) => {
     if (!notification.isRead) {
       await markRead.mutateAsync(notification.id);
     }
-    if (notification.linkUrl) {
-      window.location.href = notification.linkUrl;
+    const link = getNotificationLink(notification);
+    if (link) {
+      window.location.href = link;
       setOpen(false);
     }
   };
 
   const handleMarkAllRead = async () => {
     await markAllRead.mutateAsync();
+  };
+
+  const handleDeleteRead = async () => {
+    await deleteRead.mutateAsync();
   };
 
   return (
@@ -68,11 +78,18 @@ export function NotificationBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h4 className="text-sm font-semibold">Notifications</h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-auto py-1" onClick={handleMarkAllRead}>
-              Mark all read
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {readCount > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-auto py-1 text-destructive hover:text-destructive" onClick={handleDeleteRead}>
+                Clear read
+              </Button>
+            )}
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-auto py-1" onClick={handleMarkAllRead}>
+                Mark all read
+              </Button>
+            )}
+          </div>
         </div>
         <ScrollArea className="max-h-80">
           {notifications.length === 0 ? (
@@ -109,3 +126,4 @@ export function NotificationBell() {
     </Popover>
   );
 }
+

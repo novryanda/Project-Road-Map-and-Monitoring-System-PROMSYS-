@@ -43,14 +43,14 @@ import { PaginatedResponse } from "@/types/api";
 export function useTasks(page = 1, size = 10) {
   return useQuery<PaginatedResponse<Task[]>>({
     queryKey: ["tasks", page, size],
-    queryFn: () => api.get("/tasks", { params: { page, size } }).then((r) => r as any),
+    queryFn: () => api.get("/tasks", { params: { page, size } }).then((r: any) => r as any),
   });
 }
 
 export function useProjectTasks(projectId: string, page = 1, size = 10) {
   return useQuery<PaginatedResponse<Task[]>>({
     queryKey: ["tasks", "project", projectId, page, size],
-    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r) => r as any),
+    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r: any) => r as any),
     enabled: !!projectId,
   });
 }
@@ -58,7 +58,7 @@ export function useProjectTasks(projectId: string, page = 1, size = 10) {
 export function useTask(id: string) {
   return useQuery<Task>({
     queryKey: ["tasks", id],
-    queryFn: () => api.get(`/tasks/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/tasks/${id}`).then((r: any) => r.data),
     enabled: !!id,
   });
 }
@@ -76,9 +76,10 @@ export function useCreateTask() {
       assignedToId: string;
       deadline: string;
       priority?: Task["priority"];
-    }) => api.post(`/projects/${projectId}/tasks`, data).then((r) => r.data),
+    }) => api.post(`/projects/${projectId}/tasks`, data).then((r: any) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
     },
   });
 }
@@ -87,16 +88,22 @@ export function useUpdateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Partial<Omit<Task, "id" | "project" | "assignedTo" | "createdBy" | "attachments" | "comments" | "createdAt" | "updatedAt">>) =>
-      api.patch(`/tasks/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+      api.patch(`/tasks/${id}`, data).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+    },
   });
 }
 
 export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/tasks/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    mutationFn: (id: string) => api.delete(`/tasks/${id}`).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+    },
   });
 }
 
@@ -104,8 +111,11 @@ export function useUpdateTaskStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: Task["status"] }) =>
-      api.patch(`/tasks/${id}/status`, { status }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+      api.patch(`/tasks/${id}/status`, { status }).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+    },
   });
 }
 
@@ -113,8 +123,11 @@ export function useAddTaskComment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ taskId, content }: { taskId: string; content: string }) =>
-      api.post(`/tasks/${taskId}/comments`, { content }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+      api.post(`/tasks/${taskId}/comments`, { content }).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+    },
   });
 }
 
@@ -126,10 +139,11 @@ export function useUploadTaskAttachment() {
       formData.append("file", file);
       return api.post(`/tasks/${taskId}/attachments`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      }).then((r) => r.data);
+      }).then((r: any) => r.data);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
     },
   });
 }

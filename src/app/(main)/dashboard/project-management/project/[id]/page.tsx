@@ -41,6 +41,7 @@ import {
 import type { DocumentType } from "@/hooks/use-projects";
 import { useProjectTasks, useUpdateTaskStatus } from "@/hooks/use-tasks";
 import { useInvoices } from "@/hooks/use-invoices";
+import { useReimbursements } from "@/hooks/use-reimbursements";
 import type { Task } from "@/hooks/use-tasks";
 import {
   ArrowLeft,
@@ -105,6 +106,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const tasks = tasksRes?.data || [];
   const { data: invoicesRes } = useInvoices({ projectId: id, page: 1, size: 100 });
   const invoices = invoicesRes?.data || [];
+  const { data: reimbursementsRes } = useReimbursements({ projectId: id, page: 1, size: 100 });
+  const projectReimbursements = reimbursementsRes?.data || [];
   const { data: documents = [] } = useProjectDocuments(id);
   const { data: activities = [] } = useProjectActivities(id);
   const updateProject = useUpdateProject();
@@ -278,13 +281,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const inProgressTasks = tasks.filter((t) => t.status === "IN_PROGRESS").length;
   const overdueTasks = tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "DONE").length;
 
-  const totalInvoiceIncome = invoices
-    .filter((i) => i.type === "INCOME")
-    .reduce((s, i) => s + (i.total || 0), 0);
-  const totalInvoiceExpense = invoices
-    .filter((i) => i.type === "EXPENSE")
-    .reduce((s, i) => s + (i.total || 0), 0);
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -303,6 +299,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       </div>
     );
   }
+
+  // Financial Stats (Calculated once project is available)
+  const totalInvoiceIncome = project.financialSummary?.totalIncome ?? invoices
+    .filter((i) => i.type === "INCOME" && i.status === "PAID")
+    .reduce((s, i) => s + (i.totalAmount || 0), 0);
+  const totalInvoiceExpense = project.financialSummary?.totalExpense ?? invoices
+    .filter((i) => i.type === "EXPENSE" && i.status === "PAID")
+    .reduce((s, i) => s + (i.totalAmount || 0), 0);
+
+  const paymentPercentage = project.contractValue && Number(project.contractValue) > 0
+    ? ((project.financialSummary?.totalIncome || 0) / Number(project.contractValue)) * 100
+    : 0;
 
   return (
     <div className="flex flex-col gap-6 p-6 md:p-8">
@@ -393,6 +401,25 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-emerald-100 p-2 dark:bg-emerald-900">
+                <DollarSign className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Payment Status</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold tabular-nums">
+                    {paymentPercentage.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">Paid</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
@@ -402,6 +429,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <TabsTrigger value="tasks">Tasks ({totalTasks})</TabsTrigger>
           <TabsTrigger value="members">Members ({project.members?.length || 0})</TabsTrigger>
           <TabsTrigger value="invoices">Invoices ({invoices.length})</TabsTrigger>
+          <TabsTrigger value="reimbursements">Reimbursements ({projectReimbursements.length})</TabsTrigger>
           <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           <TabsTrigger value="activities">Activities ({activities.length})</TabsTrigger>
         </TabsList>
@@ -453,26 +481,67 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <CardTitle>Financial Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Total Income</span>
-                  <span className="font-medium text-green-600 tabular-nums">
-                    {formatCurrency(totalInvoiceIncome)}
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total Income (Paid)</span>
+                    <span className="font-medium text-green-600 tabular-nums">
+                      {formatCurrency(totalInvoiceIncome)}
+                    </span>
+                  </div>
+                  {project.financialSummary && project.financialSummary.outstandingIncome > 0 && (
+                    <div className="flex justify-between items-center italic opacity-70">
+                      <span className="text-xs text-muted-foreground ml-2">Outstanding</span>
+                      <span className="text-xs font-medium tabular-nums">
+                        {formatCurrency(project.financialSummary.outstandingIncome)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total Expense</span>
+                    <span className="font-medium text-red-600 tabular-nums">
+                      {formatCurrency(totalInvoiceExpense)}
+                    </span>
+                  </div>
+                  {project.financialSummary && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground ml-2">Invoices</span>
+                        <span className="text-xs font-medium tabular-nums">
+                          {formatCurrency(project.financialSummary.invoiceExpense)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground ml-2">Reimbursements</span>
+                        <span className="text-xs font-medium tabular-nums">
+                          {formatCurrency(project.financialSummary.reimbursementExpense)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Total Expense</span>
-                  <span className="font-medium text-red-600 tabular-nums">
-                    {formatCurrency(totalInvoiceExpense)}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Net</span>
+                  <span className="text-sm font-semibold">Net Profit (Est)</span>
                   <span className={`font-bold text-lg tabular-nums ${totalInvoiceIncome - totalInvoiceExpense >= 0 ? "text-green-600" : "text-red-600"}`}>
                     {formatCurrency(totalInvoiceIncome - totalInvoiceExpense)}
                   </span>
                 </div>
+                {project.financialSummary && (
+                  <div className="pt-2">
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-green-500"
+                        style={{ width: `${Math.min(100, Math.max(0, paymentPercentage))}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1 text-center font-medium">
+                      PAYMENT COLLECTION: {paymentPercentage.toFixed(1)}%
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -662,7 +731,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   {invoices.map((inv) => (
                     <div
                       key={inv.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
+                      className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => router.push(`/dashboard/invoice/${inv.id}`)}
                     >
                       <div className="flex items-center gap-3">
                         <Badge variant={inv.type === "INCOME" ? "default" : "destructive"}>
@@ -675,14 +745,71 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                           </p>
                         </div>
                       </div>
-                      <p className={`text-sm font-bold tabular-nums ${inv.type === "INCOME" ? "text-green-600" : "text-red-600"}`}>
-                        {formatCurrency(inv.total)}
-                      </p>
+                      <div className="text-right">
+                        <p className={`text-sm font-bold tabular-nums ${inv.type === "INCOME" ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(inv.totalAmount)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(inv.createdAt).toLocaleDateString("id-ID")}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-6">No invoices for this project</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Reimbursements */}
+        <TabsContent value="reimbursements">
+          <Card className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Reimbursements</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={() => router.push("/dashboard/reimbursement/create")}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Request Reimbursement
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {projectReimbursements.length > 0 ? (
+                <div className="space-y-3">
+                  {projectReimbursements.map((reimb) => (
+                    <div
+                      key={reimb.id}
+                      className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => router.push(`/dashboard/reimbursement/${reimb.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900">
+                          <DollarSign className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{reimb.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {reimb.status} · {reimb.category?.name} · {reimb.submittedBy?.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold tabular-nums text-red-600">
+                          {formatCurrency(reimb.amount)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(reimb.createdAt).toLocaleDateString("id-ID")}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-6">No reimbursements for this project</p>
               )}
             </CardContent>
           </Card>

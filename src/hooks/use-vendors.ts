@@ -38,7 +38,7 @@ export function useCreateVendor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Omit<Vendor, "id" | "category" | "createdAt" | "updatedAt">) =>
-      api.post("/vendors", data).then((r) => r.data),
+      api.post("/vendors", data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["vendors"] }),
   });
 }
@@ -47,7 +47,7 @@ export function useUpdateVendor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Partial<Omit<Vendor, "id" | "category" | "createdAt" | "updatedAt">>) =>
-      api.patch(`/vendors/${id}`, data).then((r) => r.data),
+      api.patch(`/vendors/${id}`, data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["vendors"] }),
   });
 }
@@ -55,7 +55,7 @@ export function useUpdateVendor() {
 export function useDeleteVendor() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/vendors/${id}`).then((r) => r.data),
+    mutationFn: (id: string) => api.delete(`/vendors/${id}`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["vendors"] }),
   });
 }

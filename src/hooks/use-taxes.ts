@@ -13,7 +13,7 @@ export interface Tax {
 export function useTaxes() {
   return useQuery<Tax[]>({
     queryKey: ["taxes"],
-    queryFn: () => api.get("/taxes").then((r) => r.data),
+    queryFn: () => api.get("/taxes").then((r: any) => r.data),
   });
 }
 
@@ -38,7 +38,7 @@ export function useUpdateTax() {
 export function useDeleteTax() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/taxes/${id}`).then((r) => r.data),
+    mutationFn: (id: string) => api.delete(`/taxes/${id}`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["taxes"], exact: false }),
   });
 }

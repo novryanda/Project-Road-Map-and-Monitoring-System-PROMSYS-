@@ -12,12 +12,6 @@ export default function LoginV2() {
           <p className="text-muted-foreground text-sm">Please enter your details to login.</p>
         </div>
         <LoginForm />
-        <p className="text-center text-muted-foreground text-sm">
-          Don&apos;t have an account?{" "}
-          <Link href="/auth/v2/register" className="font-medium text-primary underline-offset-4 hover:underline">
-            Register
-          </Link>
-        </p>
       </div>
 
       <div className="absolute bottom-5 flex w-full justify-between px-10">

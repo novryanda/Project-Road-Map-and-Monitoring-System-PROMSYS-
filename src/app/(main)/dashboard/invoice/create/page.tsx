@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Select,
@@ -16,46 +15,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateInvoice, useUploadInvoiceAttachment } from "@/hooks/use-invoices";
-import {
-  useReimbursements,
-  useUploadReimbursementAttachment,
-} from "@/hooks/use-reimbursements";
 import { useProjects } from "@/hooks/use-projects";
 import { useCategories } from "@/hooks/use-categories";
 import { useTaxes } from "@/hooks/use-taxes";
 import { useVendors } from "@/hooks/use-vendors";
-import {
-  ArrowLeft,
-  Upload,
-  FileText,
-  X,
-  Receipt,
-  CheckCircle,
-  Clock,
-  Paperclip,
-} from "lucide-react";
+import { ArrowLeft, Upload, FileText, X, Paperclip, Clock } from "lucide-react";
 import { toast } from "sonner";
-
-const REIMBURSEMENT_STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  APPROVED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  PAID: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-};
 
 export default function CreateInvoicePage() {
   const router = useRouter();
   const createInvoice = useCreateInvoice();
-  const uploadInvoiceAttachment = useUploadInvoiceAttachment();
-  const uploadReimbursementAttachment = useUploadReimbursementAttachment();
+  const uploadAttachment = useUploadInvoiceAttachment();
+
   const { data: projectsRes } = useProjects(1, 100);
   const projects = projectsRes?.data || [];
+
   const { data: categories = [] } = useCategories();
   const { data: taxes = [] } = useTaxes();
+
   const { data: vendorsRes } = useVendors(1, 100);
   const vendors = vendorsRes?.data || [];
-  const { data: reimbursementsRes } = useReimbursements({ status: "APPROVED", page: 1, size: 100 });
-  const reimbursements = reimbursementsRes?.data || [];
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     type: "EXPENSE" as "INCOME" | "EXPENSE",
@@ -68,21 +51,13 @@ export default function CreateInvoicePage() {
     notes: "",
   });
 
-  // Reimbursement upload state
-  const [reimbursementFiles, setReimbursementFiles] = useState<
-    { reimbursementId: string; file: File }[]
-  >([]);
-  const [uploadingReimbursement, setUploadingReimbursement] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeReimbursementId, setActiveReimbursementId] = useState("");
-
   const filteredCategories = categories.filter((c) => c.type === form.type);
   const activeTaxes = taxes.filter((t) => t.isActive);
 
   const selectedTax = activeTaxes.find((t) => t.id === form.taxId);
-  const subtotal = parseFloat(form.subtotal) || 0;
-  const taxAmount = selectedTax ? subtotal * (selectedTax.percentage / 100) : 0;
-  const total = subtotal + taxAmount;
+  const subtotalValue = parseFloat(form.subtotal) || 0;
+  const taxAmount = selectedTax ? subtotalValue * (selectedTax.percentage / 100) : 0;
+  const total = subtotalValue + taxAmount;
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("id-ID", {
@@ -91,61 +66,55 @@ export default function CreateInvoicePage() {
       maximumFractionDigits: 0,
     }).format(val);
 
-  const handleSubmit = async () => {
-    try {
-      await createInvoice.mutateAsync({
-        type: form.type,
-        projectId: form.projectId || undefined,
-        categoryId: form.categoryId,
-        vendorId: form.vendorId || undefined,
-        taxId: form.taxId || undefined,
-        subtotal,
-        dueDate: form.dueDate,
-        notes: form.notes || undefined,
-      });
-      toast.success("Invoice created successfully");
-      router.push("/dashboard/invoice");
-    } catch {
-      toast.error("Failed to create invoice");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...files]);
     }
   };
 
-  const handleReimbursementFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !activeReimbursementId) return;
-
-      // Upload immediately
-      setUploadingReimbursement(activeReimbursementId);
-      uploadReimbursementAttachment.mutate(
-        { reimbursementId: activeReimbursementId, file },
-        {
-          onSuccess: () => {
-            toast.success("File uploaded to reimbursement");
-            setUploadingReimbursement(null);
-          },
-          onError: () => {
-            toast.error("Failed to upload file");
-            setUploadingReimbursement(null);
-          },
-        }
-      );
-
-      // Reset input
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    },
-    [activeReimbursementId, uploadReimbursementAttachment]
-  );
-
-  const triggerFileUpload = (reimbursementId: string) => {
-    setActiveReimbursementId(reimbursementId);
-    setTimeout(() => fileInputRef.current?.click(), 0);
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const isValid = form.categoryId && subtotal > 0 && form.dueDate;
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const invoice = await (createInvoice.mutateAsync as any)({
+        type: form.type,
+        projectId: form.projectId && form.projectId !== "none" ? form.projectId : undefined,
+        categoryId: form.categoryId,
+        vendorId: form.vendorId && form.vendorId !== "none" ? form.vendorId : undefined,
+        taxId: form.taxId && form.taxId !== "none" ? form.taxId : undefined,
+        amount: subtotalValue,
+        dueDate: form.dueDate,
+        notes: form.notes || undefined,
+      });
+
+      // Upload files if any
+      if (selectedFiles.length > 0) {
+        toast.info(`Uploading ${selectedFiles.length} attachments...`);
+        for (const file of selectedFiles) {
+          await uploadAttachment.mutateAsync({ invoiceId: invoice.id, file });
+        }
+      }
+
+      toast.success("Invoice created successfully");
+      router.push("/dashboard/invoice");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to create invoice");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isValid = form.categoryId && subtotalValue > 0 && form.dueDate;
 
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
+    <div className="flex flex-col gap-6 p-6 md:p-8 max-w-7xl mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
@@ -158,24 +127,15 @@ export default function CreateInvoicePage() {
         </div>
       </div>
 
-      {/* Hidden file input for reimbursement uploads */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-        onChange={handleReimbursementFileSelect}
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Invoice Form */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2 space-y-6">
           <Card className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50">
             <CardHeader>
               <CardTitle>Invoice Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Type *</Label>
                   <Select
@@ -192,8 +152,8 @@ export default function CreateInvoicePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INCOME">Income</SelectItem>
-                      <SelectItem value="EXPENSE">Expense</SelectItem>
+                      <SelectItem value="INCOME">Income (Pemasukan)</SelectItem>
+                      <SelectItem value="EXPENSE">Expense (Pengeluaran)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -218,7 +178,7 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Category *</Label>
                   <Select
@@ -247,6 +207,7 @@ export default function CreateInvoicePage() {
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">No Vendor</SelectItem>
                       {vendors.map((v: any) => (
                         <SelectItem key={v.id} value={v.id}>
                           {v.name}
@@ -257,7 +218,7 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Subtotal (IDR) *</Label>
                   <Input
@@ -309,15 +270,15 @@ export default function CreateInvoicePage() {
                     setForm({ ...form, notes: e.target.value })
                   }
                   placeholder="Additional notes..."
+                  className="min-h-[100px]"
                 />
               </div>
 
-              {/* Summary */}
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="tabular-nums">
-                    {formatCurrency(subtotal)}
+                  <span className="tabular-nums font-medium">
+                    {formatCurrency(subtotalValue)}
                   </span>
                 </div>
                 {selectedTax && (
@@ -325,127 +286,129 @@ export default function CreateInvoicePage() {
                     <span className="text-muted-foreground">
                       Tax ({selectedTax.name} - {selectedTax.percentage}%)
                     </span>
-                    <span className="tabular-nums">
+                    <span className="tabular-nums font-medium">
                       {formatCurrency(taxAmount)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total</span>
-                  <span className="tabular-nums">
+                  <span className="tabular-nums text-primary">
                     {formatCurrency(total)}
                   </span>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-4 pt-4">
-                <Button variant="outline" onClick={() => router.back()}>
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={!isValid || createInvoice.isPending}
+                  disabled={!isValid || isSubmitting}
+                  className="px-8"
                 >
-                  {createInvoice.isPending ? "Creating..." : "Create Invoice"}
+                  {isSubmitting ? (
+                    <>
+                      <Clock className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Invoice"
+                  )}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right: Reimbursement Upload Panel */}
-        <div className="lg:col-span-2">
-          <Card className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50 sticky top-6">
+        {/* Right: Invoice Attachments */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-5 w-5" />
-                Reimbursement Uploads
+                <Paperclip className="h-5 w-5 text-primary" />
+                Invoice Attachments
               </CardTitle>
               <CardDescription>
-                Upload supporting documents for approved reimbursements
+                Upload supporting documents for this invoice
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {reimbursements.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="rounded-full bg-muted p-3 mb-3">
-                    <Receipt className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    No approved reimbursements to upload documents for
-                  </p>
+              <div
+                className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-primary/5 hover:border-primary/50 transition-all cursor-pointer group"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={handleFileChange}
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                />
+                <div className="p-4 rounded-full bg-primary/10 mb-3 group-hover:scale-110 transition-transform">
+                  <Upload className="h-6 w-6 text-primary" />
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {reimbursements.map((r) => (
-                    <div
-                      key={r.id}
-                      className="rounded-lg border bg-white/80 dark:bg-slate-800/80 p-3 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium">Drop files here or click to upload</p>
+                <p className="text-xs text-muted-foreground mt-1">PDF, PNG, JPG up to 10MB</p>
+              </div>
+
+              {selectedFiles.length > 0 ? (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Selected Files ({selectedFiles.length})
+                  </p>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {selectedFiles.map((file, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-white dark:bg-slate-800 group animate-in slide-in-from-right-2"
+                      >
+                        <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                          <FileText className="h-4 w-4 text-blue-500" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{r.title}</p>
+                          <p className="text-sm font-medium truncate">{file.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {r.project?.name || "No Project"}
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
                           </p>
                         </div>
-                        <Badge
-                          className={REIMBURSEMENT_STATUS_COLORS[r.status] || ""}
-                          variant="secondary"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(idx);
+                          }}
                         >
-                          {r.status}
-                        </Badge>
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="tabular-nums font-medium text-foreground">
-                          {formatCurrency(r.amount)}
-                        </span>
-                        <span>{r.submittedBy?.name}</span>
-                      </div>
-
-                      {/* Existing attachments */}
-                      {r.attachments && r.attachments.length > 0 && (
-                        <div className="space-y-1">
-                          {r.attachments.map((att) => (
-                            <div
-                              key={att.id}
-                              className="flex items-center gap-2 text-xs bg-muted/50 rounded px-2 py-1"
-                            >
-                              <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
-                              <span className="truncate flex-1">
-                                {att.file.originalName}
-                              </span>
-                              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Upload button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        disabled={uploadingReimbursement === r.id}
-                        onClick={() => triggerFileUpload(r.id)}
-                      >
-                        {uploadingReimbursement === r.id ? (
-                          <>
-                            <Clock className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="mr-2 h-3.5 w-3.5" />
-                            Upload Document
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                  <FileText className="h-8 w-8 mb-2 opacity-20" />
+                  <p className="text-xs italic">No documents attached yet</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-none bg-primary/5 dark:bg-primary/10 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <Receipt className="h-5 w-5 text-primary mt-1" />
+                <div>
+                  <h4 className="text-sm font-semibold">Accounting Tip</h4>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Always attach original receipts or invoices for better audit tracking and tax compliance.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -453,3 +416,5 @@ export default function CreateInvoicePage() {
     </div>
   );
 }
+
+import { Receipt } from "lucide-react";

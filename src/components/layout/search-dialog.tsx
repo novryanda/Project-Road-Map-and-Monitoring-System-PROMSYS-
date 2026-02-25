@@ -19,12 +19,6 @@ const searchItems = [
   { group: "Dashboards", icon: ChartBar, label: "CRM", disabled: true },
   { group: "Dashboards", icon: Gauge, label: "Analytics", disabled: true },
   { group: "Dashboards", icon: ShoppingBag, label: "E-Commerce", disabled: true },
-  { group: "Dashboards", icon: GraduationCap, label: "Academy", disabled: true },
-  { group: "Dashboards", icon: Forklift, label: "Logistics", disabled: true },
-  { group: "Authentication", label: "Login v1" },
-  { group: "Authentication", label: "Login v2" },
-  { group: "Authentication", label: "Register v1" },
-  { group: "Authentication", label: "Register v2" },
 ];
 
 export function SearchDialog() {

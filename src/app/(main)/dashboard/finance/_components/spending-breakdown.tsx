@@ -2,23 +2,24 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface ReimbursementStatus {
-  status: string;
-  count: number;
-  total: number;
+interface SpendingCategory {
+  name: string;
+  amount: number;
 }
 
 interface SpendingBreakdownProps {
-  reimbursementsByStatus: ReimbursementStatus[];
+  expensesByCategory: SpendingCategory[];
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  SUBMITTED: "#f59e0b",
-  PENDING: "#f59e0b",
-  APPROVED: "#3b82f6",
-  REJECTED: "#ef4444",
-  PAID: "#10b981",
-};
+const CATEGORY_COLORS = [
+  "#ef4444", // Red (Housing)
+  "#f87171", // Lighter Red
+  "#fb7185", // Rose
+  "#fecaca", // Very Light Red/Pink
+  "#ffedd5", // Orange/Amber tint
+  "#fee2e2", // Pale Red
+  "#fca5a5", // Medium Red
+];
 
 const formatIDR = (val: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -27,55 +28,62 @@ const formatIDR = (val: number) =>
     maximumFractionDigits: 0,
   }).format(val);
 
-export function SpendingBreakdown({ reimbursementsByStatus }: SpendingBreakdownProps) {
-  const totalAmount = reimbursementsByStatus.reduce((sum, item) => sum + item.total, 0);
-  const totalCount = reimbursementsByStatus.reduce((sum, item) => sum + item.count, 0);
+export function SpendingBreakdown({ expensesByCategory }: SpendingBreakdownProps) {
+  const totalAmount = expensesByCategory.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <Card>
+    <Card className="border-none shadow-md bg-white dark:bg-slate-900 overflow-hidden">
       <CardHeader>
-        <CardTitle>Reimbursement Overview</CardTitle>
-        <CardDescription>Distribution by status</CardDescription>
+        <CardTitle className="text-xl font-bold tracking-tight">Spending Breakdown</CardTitle>
+        <CardDescription className="text-muted-foreground font-medium">Expense distribution by category.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {reimbursementsByStatus.length > 0 ? (
+      <CardContent className="space-y-8 pt-2">
+        {expensesByCategory.length > 0 ? (
           <>
-            <div className="space-y-1">
-              <div className="font-medium text-2xl">{formatIDR(totalAmount)}</div>
-              <p className="text-muted-foreground text-xs">{totalCount} total requests</p>
-              <div className="flex h-6 w-full overflow-hidden rounded-md">
-                {reimbursementsByStatus.map((item) => {
-                  const width = totalCount > 0 ? (item.count / totalCount) * 100 : 0;
+            <div className="space-y-4">
+              <div className="font-black text-4xl tracking-tighter">{formatIDR(totalAmount)}</div>
+
+              {/* Segmented Progress Bar */}
+              <div className="flex h-10 w-full gap-0.5 overflow-hidden rounded-md group">
+                {expensesByCategory.map((item, i) => {
+                  const width = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
+                  if (width < 1) return null; // Hide very small segments
                   return (
                     <div
-                      key={item.status}
-                      className="h-full shrink-0 border-background border-l first:border-l-0"
+                      key={item.name}
+                      className="h-full first:rounded-l-sm last:rounded-r-sm transition-all duration-300 hover:opacity-80"
                       style={{
                         width: `${width}%`,
-                        backgroundColor: STATUS_COLORS[item.status] || "#94a3b8",
+                        backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
                       }}
-                      title={`${item.status}: ${item.count}`}
+                      title={`${item.name}: ${formatIDR(item.amount)}`}
                     />
                   );
                 })}
               </div>
             </div>
 
-            <div className="space-y-2">
-              {reimbursementsByStatus.map((item) => {
-                const pct = totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0;
+            <div className="space-y-3">
+              {expensesByCategory.map((item, i) => {
+                const pct = totalAmount > 0 ? Math.round((item.amount / totalAmount) * 100) : 0;
                 return (
-                  <div key={item.status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="size-3 rounded-sm"
-                        style={{ backgroundColor: STATUS_COLORS[item.status] || "#94a3b8" }}
-                      />
-                      <span className="text-muted-foreground text-sm">{item.status}</span>
-                    </div>
+                  <div key={item.name} className="flex items-center justify-between group cursor-default">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm tabular-nums">{formatIDR(item.total)}</span>
-                      <span className="font-medium text-sm tabular-nums w-10 text-right">{pct}%</span>
+                      <div
+                        className="size-4 rounded-sm"
+                        style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }}
+                      />
+                      <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">
+                        {item.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="text-sm tabular-nums text-muted-foreground font-medium">
+                        {formatIDR(item.amount)}
+                      </span>
+                      <span className="font-black text-sm tabular-nums w-12 text-right">
+                        {pct}%
+                      </span>
                     </div>
                   </div>
                 );
@@ -83,8 +91,8 @@ export function SpendingBreakdown({ reimbursementsByStatus }: SpendingBreakdownP
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center h-[150px] text-muted-foreground text-sm">
-            No reimbursement data
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted/20 rounded-xl border border-dashed">
+            <p className="text-sm font-bold opacity-40 uppercase tracking-widest">No spending data</p>
           </div>
         )}
       </CardContent>

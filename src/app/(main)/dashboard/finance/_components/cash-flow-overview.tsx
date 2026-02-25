@@ -6,10 +6,19 @@ import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recha
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CashFlowOverviewProps {
   monthlyIncome: { month: string; amount: number }[];
   monthlyExpense: { month: string; amount: number }[];
+  timeRange: string;
+  onTimeRangeChange: (value: string) => void;
 }
 
 const chartConfig = {
@@ -30,7 +39,19 @@ const formatIDR = (val: number) =>
     maximumFractionDigits: 0,
   }).format(val);
 
-export function CashFlowOverview({ monthlyIncome, monthlyExpense }: CashFlowOverviewProps) {
+const monthFormatter = (value: string) => {
+  if (!value || !value.includes("-")) return value;
+  const [year, month] = value.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleString("en-US", { month: "short" });
+};
+
+export function CashFlowOverview({
+  monthlyIncome,
+  monthlyExpense,
+  timeRange,
+  onTimeRangeChange,
+}: CashFlowOverviewProps) {
   // Merge monthly data
   const monthlyMap = new Map<string, { month: string; income: number; expenses: number }>();
   for (const m of monthlyIncome) {
@@ -51,9 +72,33 @@ export function CashFlowOverview({ monthlyIncome, monthlyExpense }: CashFlowOver
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Cash Flow Overview</CardTitle>
-        <CardDescription>Monthly income and expenses (last 6 months)</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+        <div className="space-y-1">
+          <CardTitle>Cash Flow Overview</CardTitle>
+          <CardDescription>
+            {timeRange === "ytd"
+              ? "Monthly income and expenses (Year to Date)"
+              : timeRange === "thisyear"
+                ? "Monthly income and expenses (This Year)"
+                : "Monthly income and expenses (Last 6 months)"}
+          </CardDescription>
+        </div>
+        <Select value={timeRange} onValueChange={onTimeRangeChange}>
+          <SelectTrigger className="w-[160px] rounded-lg" aria-label="Select time range">
+            <SelectValue placeholder="Select range" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            <SelectItem value="last6months" className="rounded-lg">
+              Last 6 Months
+            </SelectItem>
+            <SelectItem value="ytd" className="rounded-lg">
+              Year to Date
+            </SelectItem>
+            <SelectItem value="thisyear" className="rounded-lg">
+              This Year
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent>
         <Separator />
@@ -87,17 +132,30 @@ export function CashFlowOverview({ monthlyIncome, monthlyExpense }: CashFlowOver
               accessibilityLayer
               data={chartData}
             >
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={monthFormatter}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+              />
               <YAxis
                 axisLine={false}
                 tickLine={false}
                 tickMargin={8}
                 tickFormatter={(value) => {
                   const abs = Math.abs(value);
-                  const formatted = abs >= 1_000_000 ? `${(abs / 1_000_000).toFixed(0)}M` : abs >= 1000 ? `${(abs / 1000).toFixed(0)}k` : `${abs}`;
+                  const formatted =
+                    abs >= 1_000_000
+                      ? `${(abs / 1_000_000).toFixed(0)}M`
+                      : abs >= 1000
+                        ? `${(abs / 1000).toFixed(0)}k`
+                        : `${abs}`;
                   return value < 0 ? `-${formatted}` : formatted;
                 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
               />
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <ReferenceLine y={0} stroke="var(--border)" />

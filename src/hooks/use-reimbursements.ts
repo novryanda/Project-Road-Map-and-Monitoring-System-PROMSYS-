@@ -19,14 +19,16 @@ export interface Reimbursement {
   approvedBy: { id: string; name: string; email: string } | null;
   attachments: {
     id: string;
-    fileId: string;
-    file: { id: string; originalName: string; url: string; size: number };
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    type: "SUBMISSION" | "PAYMENT";
   }[];
   createdAt: string;
   updatedAt: string;
 }
 
-export function useReimbursements(params?: { status?: string; projectId?: string; page?: number; size?: number }) {
+export function useReimbursements(params?: { status?: string; projectId?: string; page?: number; size?: number; view?: 'me' | 'all' }) {
   const queryParams = {
     ...params,
     page: params?.page ?? 1,
@@ -34,14 +36,14 @@ export function useReimbursements(params?: { status?: string; projectId?: string
   };
   return useQuery<PaginatedResponse<Reimbursement[]>>({
     queryKey: ["reimbursements", queryParams],
-    queryFn: () => api.get("/reimbursements", { params: queryParams }).then((r) => r.data),
+    queryFn: () => api.get("/reimbursements", { params: queryParams }).then((r: any) => r as any),
   });
 }
 
 export function useReimbursement(id: string) {
   return useQuery<Reimbursement>({
     queryKey: ["reimbursements", id],
-    queryFn: () => api.get(`/reimbursements/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/reimbursements/${id}`).then((r: any) => r.data),
     enabled: !!id,
   });
 }
@@ -55,7 +57,7 @@ export function useCreateReimbursement() {
       amount: number;
       projectId?: string;
       categoryId: string;
-    }) => api.post("/reimbursements", data).then((r) => r.data),
+    }) => api.post("/reimbursements", data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reimbursements"] }),
   });
 }
@@ -63,7 +65,7 @@ export function useCreateReimbursement() {
 export function useApproveReimbursement() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.patch(`/reimbursements/${id}/approve`).then((r) => r.data),
+    mutationFn: (id: string) => api.patch(`/reimbursements/${id}/approve`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reimbursements"] }),
   });
 }
@@ -72,7 +74,7 @@ export function useRejectReimbursement() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      api.patch(`/reimbursements/${id}/reject`, { reason }).then((r) => r.data),
+      api.patch(`/reimbursements/${id}/reject`, { reason }).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reimbursements"] }),
   });
 }
@@ -80,7 +82,7 @@ export function useRejectReimbursement() {
 export function useMarkReimbursementPaid() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.patch(`/reimbursements/${id}/pay`).then((r) => r.data),
+    mutationFn: (id: string) => api.patch(`/reimbursements/${id}/pay`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reimbursements"] }),
   });
 }
@@ -88,13 +90,17 @@ export function useMarkReimbursementPaid() {
 export function useUploadReimbursementAttachment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ reimbursementId, file }: { reimbursementId: string; file: File }) => {
+    mutationFn: ({ reimbursementId, file, type }: { reimbursementId: string; file: File; type?: 'SUBMISSION' | 'PAYMENT' }) => {
       const formData = new FormData();
       formData.append("file", file);
       return api.post(`/reimbursements/${reimbursementId}/attachments`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      }).then((r) => r.data);
+        params: { type },
+      }).then((r: any) => r.data);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reimbursements"] }),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ["reimbursements"] });
+      qc.invalidateQueries({ queryKey: ["reimbursements", variables.reimbursementId] });
+    },
   });
 }

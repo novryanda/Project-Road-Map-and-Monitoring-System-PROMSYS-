@@ -12,7 +12,6 @@ import { getPreference } from "@/server/server-actions";
 import { AccountSwitcher } from "@/components/layout/account-switcher";
 import { LayoutControls } from "@/components/layout/layout-controls";
 import { NotificationBell } from "@/components/layout/notification-bell";
-import { SearchDialog } from "@/components/layout/search-dialog";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
@@ -42,11 +41,6 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
           )}
         >
           <div className="flex w-full items-center justify-between px-4 lg:px-6">
-            <div className="flex items-center gap-1 lg:gap-2">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-              <SearchDialog />
-            </div>
             <div className="flex items-center gap-2">
               <LayoutControls />
               <NotificationBell />

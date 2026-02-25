@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFinanceDashboard } from "@/hooks/use-dashboard";
@@ -60,8 +61,16 @@ const reimbursementStatusConfig: ChartConfig = {
 
 const PIE_COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981"];
 
+const monthFormatter = (value: string) => {
+  if (!value || !value.includes("-")) return value;
+  const [year, month] = value.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleString("en-US", { month: "short" });
+};
+
 export default function FinanceDashboardPage() {
-  const { data, isLoading } = useFinanceDashboard();
+  const [timeRange, setTimeRange] = useState("last6months");
+  const { data, isLoading } = useFinanceDashboard(timeRange);
 
   const formatCurrencyIDR = (val: number) =>
     new Intl.NumberFormat("id-ID", {
@@ -133,13 +142,15 @@ export default function FinanceDashboardPage() {
               <CashFlowOverview
                 monthlyIncome={data?.monthlyIncome ?? []}
                 monthlyExpense={data?.monthlyExpense ?? []}
+                timeRange={timeRange}
+                onTimeRangeChange={setTimeRange}
               />
               <CardOverview recentInvoices={data?.recentInvoices ?? []} />
             </div>
 
-            {/* Reimbursement Overview + Financial Summary */}
+            {/* Spending Breakdown + Financial Summary */}
             <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2">
-              <SpendingBreakdown reimbursementsByStatus={data?.reimbursementsByStatus ?? []} />
+              <SpendingBreakdown expensesByCategory={data?.expensesByCategory ?? []} />
               <IncomeReliability
                 totalIncome={totalIncome}
                 totalExpense={totalExpense}
@@ -238,8 +249,14 @@ export default function FinanceDashboardPage() {
                           <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={monthFormatter}
+                      />
                       <YAxis tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}M`} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area type="monotone" dataKey="income" stroke="#10b981" fill="url(#fillIncome)" stackId="a" />

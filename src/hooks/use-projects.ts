@@ -28,6 +28,14 @@ export interface Project {
   createdBy: { id: string; name: string; email: string };
   members?: ProjectMember[];
   _count?: { tasks: number; invoices: number; members: number };
+  financialSummary?: {
+    totalIncome: number;
+    outstandingIncome: number;
+    totalExpense: number;
+    invoiceExpense: number;
+    reimbursementExpense: number;
+    netProfit: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -73,7 +81,7 @@ export function useProjects(page = 1, size = 10) {
   return useQuery<PaginatedResponse<Project[]>>({
     queryKey: ["projects", page, size],
     queryFn: () =>
-      api.get("/projects", { params: { page, size } }).then((r) => {
+      api.get("/projects", { params: { page, size } }).then((r: any) => {
         console.log("[useProjects] API Response:", r);
         return r as any;
       }),
@@ -83,7 +91,7 @@ export function useProjects(page = 1, size = 10) {
 export function useProject(id: string) {
   return useQuery<Project>({
     queryKey: ["projects", id],
-    queryFn: () => api.get(`/projects/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/projects/${id}`).then((r: any) => r.data),
     enabled: !!id,
   });
 }
@@ -100,7 +108,7 @@ export function useCreateProject() {
       endDate?: string;
       contractValue?: number;
       status?: Project["status"];
-    }) => api.post("/projects", data).then((r) => r.data),
+    }) => api.post("/projects", data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -121,7 +129,7 @@ export function useUpdateProject() {
       endDate?: string;
       contractValue?: number;
       status?: Project["status"];
-    }) => api.patch(`/projects/${id}`, data).then((r) => r.data),
+    }) => api.patch(`/projects/${id}`, data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -129,7 +137,7 @@ export function useUpdateProject() {
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/projects/${id}`).then((r) => r.data),
+    mutationFn: (id: string) => api.delete(`/projects/${id}`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -137,7 +145,7 @@ export function useDeleteProject() {
 export function useProjectTasks(projectId: string, page = 1, size = 10) {
   return useQuery<PaginatedResponse<Task[]>>({
     queryKey: ["tasks", "project", projectId, page, size],
-    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r) => r as any),
+    queryFn: () => api.get(`/projects/${projectId}/tasks`, { params: { page, size } }).then((r: any) => r as any),
     enabled: !!projectId,
   });
 }
@@ -146,7 +154,7 @@ export function useAddProjectMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ projectId, userId, role }: { projectId: string; userId: string; role?: string }) =>
-      api.post(`/projects/${projectId}/members`, { userId, role }).then((r) => r.data),
+      api.post(`/projects/${projectId}/members`, { userId, role }).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -155,7 +163,7 @@ export function useRemoveProjectMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ projectId, userId }: { projectId: string; userId: string }) =>
-      api.delete(`/projects/${projectId}/members/${userId}`).then((r) => r.data),
+      api.delete(`/projects/${projectId}/members/${userId}`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -166,7 +174,7 @@ export function useProjectUsers(search?: string) {
   return useQuery<ProjectUser[]>({
     queryKey: ["project-users", search],
     queryFn: () =>
-      api.get("/projects/users", { params: search ? { search } : undefined }).then((r) => r.data),
+      api.get("/projects/users", { params: search ? { search } : undefined }).then((r: any) => r.data),
   });
 }
 
@@ -175,7 +183,7 @@ export function useProjectUsers(search?: string) {
 export function useProjectDocuments(projectId: string) {
   return useQuery<ProjectDocument[]>({
     queryKey: ["projects", projectId, "documents"],
-    queryFn: () => api.get(`/projects/${projectId}/documents`).then((r) => r.data),
+    queryFn: () => api.get(`/projects/${projectId}/documents`).then((r: any) => r.data),
     enabled: !!projectId,
   });
 }
@@ -202,7 +210,7 @@ export function useCreateProjectDocument() {
         .post(`/projects/${projectId}/documents`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         })
-        .then((r) => r.data);
+        .then((r: any) => r.data);
     },
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: ["projects", variables.projectId, "documents"] }),
@@ -213,7 +221,7 @@ export function useDeleteProjectDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ projectId, documentId }: { projectId: string; documentId: string }) =>
-      api.delete(`/projects/${projectId}/documents/${documentId}`).then((r) => r.data),
+      api.delete(`/projects/${projectId}/documents/${documentId}`).then((r: any) => r.data),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: ["projects", variables.projectId, "documents"] }),
   });
@@ -224,7 +232,7 @@ export function useDeleteProjectDocument() {
 export function useProjectActivities(projectId: string) {
   return useQuery<ProjectActivity[]>({
     queryKey: ["projects", projectId, "activities"],
-    queryFn: () => api.get(`/projects/${projectId}/activities`).then((r) => r.data),
+    queryFn: () => api.get(`/projects/${projectId}/activities`).then((r: any) => r.data),
     enabled: !!projectId,
   });
 }
@@ -245,7 +253,7 @@ export function useCreateProjectActivity() {
     }) =>
       api
         .post(`/projects/${projectId}/activities`, { title, description, activityDate })
-        .then((r) => r.data),
+        .then((r: any) => r.data),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: ["projects", variables.projectId, "activities"] }),
   });
@@ -267,7 +275,7 @@ export function useUpdateProjectActivity() {
     }) =>
       api
         .patch(`/projects/${projectId}/activities/${activityId}`, data)
-        .then((r) => r.data),
+        .then((r: any) => r.data),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: ["projects", variables.projectId, "activities"] }),
   });
@@ -277,7 +285,7 @@ export function useDeleteProjectActivity() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ projectId, activityId }: { projectId: string; activityId: string }) =>
-      api.delete(`/projects/${projectId}/activities/${activityId}`).then((r) => r.data),
+      api.delete(`/projects/${projectId}/activities/${activityId}`).then((r: any) => r.data),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: ["projects", variables.projectId, "activities"] }),
   });

@@ -30,7 +30,7 @@ export function useTeams(page = 1, size = 10) {
 export function useTeam(id: string) {
   return useQuery<Team>({
     queryKey: ["teams", id],
-    queryFn: () => api.get(`/teams/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/teams/${id}`).then((r: any) => r.data),
     enabled: !!id,
   });
 }
@@ -56,7 +56,7 @@ export function useUpdateTeam() {
 export function useDeleteTeam() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/teams/${id}`).then((r) => r.data),
+    mutationFn: (id: string) => api.delete(`/teams/${id}`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
   });
 }

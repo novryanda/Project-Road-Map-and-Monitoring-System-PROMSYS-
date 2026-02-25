@@ -12,21 +12,22 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   type: "INCOME" | "EXPENSE";
-  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
-  projectId: string;
+  status: "PAID" | "UNPAID" | "DEBT";
+  projectId: string | null;
   vendorId: string | null;
   categoryId: string;
   taxId: string | null;
-  subtotal: number;
+  amount: number;
   taxAmount: number;
-  total: number;
-  dueDate: string;
+  totalAmount: number;
+  dueDate: string | null;
+  paidAt: string | null;
   notes: string | null;
   createdById: string;
-  project: { id: string; name: string };
-  vendor: { id: string; name: string } | null;
+  project: { id: string; name: string } | null;
+  vendor: { id: string; name: string; location: string; email: string } | null;
   category: { id: string; name: string };
-  tax: { id: string; name: string; rate: number } | null;
+  tax: { id: string; name: string; percentage: number } | null;
   createdBy: { id: string; name: string; email: string };
   attachments: InvoiceAttachment[];
   createdAt: string;
@@ -43,14 +44,14 @@ export function useInvoices(params?: { type?: string; status?: string; projectId
   };
   return useQuery<PaginatedResponse<Invoice[]>>({
     queryKey: ["invoices", queryParams],
-    queryFn: () => api.get("/invoices", { params: queryParams }).then((r) => r as any),
+    queryFn: () => api.get("/invoices", { params: queryParams }).then((r: any) => r as any),
   });
 }
 
 export function useInvoice(id: string) {
   return useQuery<Invoice>({
     queryKey: ["invoices", id],
-    queryFn: () => api.get(`/invoices/${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/invoices/${id}`).then((r: any) => r.data),
     enabled: !!id,
   });
 }
@@ -64,10 +65,10 @@ export function useCreateInvoice() {
       categoryId: string;
       vendorId?: string;
       taxId?: string;
-      subtotal: number;
+      amount: number;
       dueDate: string;
       notes?: string;
-    }) => api.post("/invoices", data).then((r) => r.data),
+    }) => api.post("/invoices", data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 }
@@ -81,10 +82,10 @@ export function useUpdateInvoice() {
       categoryId: string;
       vendorId: string;
       taxId: string;
-      subtotal: number;
+      amount: number;
       dueDate: string;
       notes: string;
-    }>) => api.patch(`/invoices/${id}`, data).then((r) => r.data),
+    }>) => api.patch(`/invoices/${id}`, data).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 }
@@ -92,7 +93,7 @@ export function useUpdateInvoice() {
 export function useDeleteInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/invoices/${id}`).then((r) => r.data),
+    mutationFn: (id: string) => api.delete(`/invoices/${id}`).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 }
@@ -101,7 +102,7 @@ export function useUpdateInvoiceStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: Invoice["status"] }) =>
-      api.patch(`/invoices/${id}/status`, { status }).then((r) => r.data),
+      api.patch(`/invoices/${id}/status`, { status }).then((r: any) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 }
@@ -114,8 +115,39 @@ export function useUploadInvoiceAttachment() {
       formData.append("file", file);
       return api.post(`/invoices/${invoiceId}/attachments`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      }).then((r) => r.data);
+      }).then((r: any) => r.data);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+}
+
+export interface FinanceItem {
+  id: string;
+  type: "INVOICE" | "REIMBURSEMENT";
+  number: string;
+  title: string;
+  description: string | null;
+  amount: number;
+  status: string;
+  date: string;
+  dueDate: string | null;
+  vendor: { id: string; name: string } | null;
+  submitter?: { id: string; name: string; email: string };
+  project: { id: string; name: string } | null;
+  category: { id: string; name: string };
+  createdBy: { id: string; name: string; email: string };
+  attachments: any[];
+  isPaid: boolean;
+}
+
+export function useFinanceSummary(params?: { page?: number; size?: number; search?: string }) {
+  const queryParams = {
+    ...params,
+    page: params?.page ?? 1,
+    size: params?.size ?? 10,
+  };
+  return useQuery<PaginatedResponse<FinanceItem[]> & { summary: any }>({
+    queryKey: ["finance-summary", queryParams],
+    queryFn: () => api.get("/invoices/finance-summary", { params: queryParams }).then((r: any) => r as any),
   });
 }

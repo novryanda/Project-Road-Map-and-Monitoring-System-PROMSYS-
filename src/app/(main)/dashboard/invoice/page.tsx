@@ -8,110 +8,93 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import {
-  useInvoices,
-  useInvoice,
+  useFinanceSummary,
   useDeleteInvoice,
   useUpdateInvoiceStatus,
+  type FinanceItem,
 } from "@/hooks/use-invoices";
-import type { Invoice } from "@/hooks/use-invoices";
+import { useMarkReimbursementPaid } from "@/hooks/use-reimbursements";
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Plus, Search, FileText, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { MoreHorizontal, Plus, Search, FileText, ArrowUpRight, ArrowDownLeft, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 const STATUS_COLORS: Record<string, string> = {
+  // Invoice statuses
   DRAFT: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
   SENT: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   PAID: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   OVERDUE: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   CANCELLED: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  // Reimbursement statuses
+  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  APPROVED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
 export default function InvoicePage() {
   const router = useRouter();
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
-  const { data: invoicesRes, isLoading } = useInvoices({
-    type: typeFilter || undefined,
-    status: statusFilter || undefined,
+
+  const { data: financeRes, isLoading } = useFinanceSummary({
     page,
     size,
+    search
   });
-  const invoices = invoicesRes?.data || [];
-  const paging = invoicesRes?.paging;
+
+  const items = financeRes?.data || [];
+  const paging = financeRes?.paging;
+  const summary = financeRes?.summary;
+
   const deleteInvoice = useDeleteInvoice();
-  const updateStatus = useUpdateInvoiceStatus();
+  const updateInvoiceStatus = useUpdateInvoiceStatus();
+  const markReimbursementPaid = useMarkReimbursementPaid();
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
-
-  const { data: selectedInvoice } = useInvoice(selectedInvoiceId);
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
+  const handleInvoiceStatusChange = async (id: string, status: any) => {
     try {
-      await deleteInvoice.mutateAsync(deleteTarget.id);
-      toast.success("Invoice deleted");
-      setDeleteDialogOpen(false);
-    } catch {
-      toast.error("Failed to delete invoice");
-    }
-  };
-
-  const handleStatusChange = async (id: string, status: Invoice["status"]) => {
-    try {
-      await updateStatus.mutateAsync({ id, status });
+      await updateInvoiceStatus.mutateAsync({ id, status });
       toast.success("Invoice status updated");
     } catch {
       toast.error("Failed to update status");
     }
   };
 
+  const handleDeleteInvoice = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this invoice?")) return;
+    try {
+      await deleteInvoice.mutateAsync(id);
+      toast.success("Invoice deleted");
+    } catch {
+      toast.error("Failed to delete invoice");
+    }
+  };
+
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(val);
 
-  const columns: ColumnDef<Invoice>[] = [
+  const columns: ColumnDef<FinanceItem>[] = [
     {
-      accessorKey: "invoiceNumber",
-      header: "Invoice #",
+      accessorKey: "number",
+      header: "Number",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono text-sm font-medium">{row.original.invoiceNumber}</span>
+          {row.original.type === "INVOICE" ? (
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          )}
+          <span className="font-mono text-xs font-medium">{row.original.number}</span>
         </div>
       ),
     },
@@ -119,10 +102,23 @@ export default function InvoicePage() {
       accessorKey: "type",
       header: "Type",
       cell: ({ row }) => (
-        <Badge variant={row.original.type === "INCOME" ? "default" : "secondary"} className="gap-1">
-          {row.original.type === "INCOME" ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
-          {row.original.type}
+        <Badge variant="outline" className="gap-1 text-xs">
+          {row.original.type === "INVOICE" ? (
+            row.original.title.includes("Vendor") ? "Expense" : "Invoice" // Simplistic check
+          ) : "Reimburse"}
         </Badge>
+      ),
+    },
+    {
+      accessorKey: "title",
+      header: "Name / Title",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-sm truncate max-w-[200px]">{row.original.title}</span>
+          {row.original.type === "REIMBURSEMENT" && row.original.submitter && (
+            <span className="text-xs text-muted-foreground">by {row.original.submitter.name}</span>
+          )}
+        </div>
       ),
     },
     {
@@ -135,64 +131,67 @@ export default function InvoicePage() {
       ),
     },
     {
-      accessorKey: "project",
-      header: "Project",
-      cell: ({ row }) => row.original.project?.name || "-",
-    },
-    {
-      accessorKey: "total",
-      header: "Total",
+      accessorKey: "date",
+      header: "Date",
       cell: ({ row }) => (
-        <span className="tabular-nums font-medium">{formatCurrency(row.original.total)}</span>
+        <span className="text-sm text-muted-foreground">{new Date(row.original.date).toLocaleDateString()}</span>
       ),
     },
     {
-      accessorKey: "dueDate",
-      header: "Due Date",
-      cell: ({ row }) => {
-        const d = new Date(row.original.dueDate);
-        const overdue = d < new Date() && !["PAID", "CANCELLED"].includes(row.original.status);
-        return (
-          <span className={overdue ? "text-destructive font-medium" : ""}>
-            {d.toLocaleDateString()}
-          </span>
-        );
-      },
+      accessorKey: "amount",
+      header: "Amount",
+      cell: ({ row }) => (
+        <span className="tabular-nums font-medium">{formatCurrency(row.original.amount)}</span>
+      ),
     },
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { setSelectedInvoiceId(row.original.id); setDetailOpen(true); }}>
-              View Details
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {row.original.status === "DRAFT" && (
-              <DropdownMenuItem onClick={() => handleStatusChange(row.original.id, "SENT")}>Mark as Sent</DropdownMenuItem>
-            )}
-            {["SENT", "OVERDUE"].includes(row.original.status) && (
-              <DropdownMenuItem onClick={() => handleStatusChange(row.original.id, "PAID")}>Mark as Paid</DropdownMenuItem>
-            )}
-            {row.original.status !== "CANCELLED" && row.original.status !== "PAID" && (
-              <DropdownMenuItem onClick={() => handleStatusChange(row.original.id, "CANCELLED")}>Cancel</DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={() => { setDeleteTarget(row.original); setDeleteDialogOpen(true); }}>
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        const item = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/invoice/${item.id}?type=${item.type}`)}>
+                View / Process
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+
+              {item.type === "INVOICE" && (
+                <>
+                  {item.status === "DRAFT" && (
+                    <DropdownMenuItem onClick={() => handleInvoiceStatusChange(item.id, "SENT")}>Mark as Sent</DropdownMenuItem>
+                  )}
+                  {["SENT", "OVERDUE"].includes(item.status) && (
+                    <DropdownMenuItem onClick={() => handleInvoiceStatusChange(item.id, "PAID")}>Mark as Paid</DropdownMenuItem>
+                  )}
+                  {item.status !== "CANCELLED" && item.status !== "PAID" && (
+                    <DropdownMenuItem onClick={() => handleInvoiceStatusChange(item.id, "CANCELLED")}>Cancel</DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteInvoice(item.id)}>
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              {item.type === "REIMBURSEMENT" && item.status === "APPROVED" && (
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/invoice/${item.id}?type=REIMBURSEMENT`)}>
+                  Process Payment
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
   const table = useDataTableInstance({
-    data: invoices,
+    data: items,
     columns,
     getRowId: (r) => r.id,
     manualPagination: true,
@@ -206,29 +205,33 @@ export default function InvoicePage() {
     setSize(tableState.pageSize);
   }, [tableState.pageIndex, tableState.pageSize]);
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><div className="text-muted-foreground">Loading invoices...</div></div>;
-  }
-
   return (
     <div className="flex flex-col gap-6 p-6 md:p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>
-          <p className="text-muted-foreground">Manage income and expense invoices</p>
+          <h1 className="text-2xl font-bold tracking-tight">Finance Management</h1>
+          <p className="text-muted-foreground">Manage invoices and reimbursements</p>
         </div>
-        <Button onClick={() => router.push("/dashboard/invoice/create")}>
-          <Plus className="mr-2 h-4 w-4" /> New Invoice
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/dashboard/reimbursement/create">
+            <Button variant="outline">
+              <Receipt className="mr-2 h-4 w-4" /> Request Reimbursement
+            </Button>
+          </Link>
+          <Link href="/dashboard/invoice/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> New Invoice
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         {[
-          { label: "Total Invoices", value: invoices.length },
-          { label: "Total Income", value: formatCurrency(invoices.filter((i) => i.type === "INCOME").reduce((s, i) => s + i.total, 0)) },
-          { label: "Total Expense", value: formatCurrency(invoices.filter((i) => i.type === "EXPENSE").reduce((s, i) => s + i.total, 0)) },
-          { label: "Overdue", value: invoices.filter((i) => i.status === "OVERDUE").length },
+          { label: "Total Transactions", value: summary?.totalInvoices + summary?.totalReimbursements || 0 },
+          { label: "Total Invoices", value: summary?.totalInvoices || 0 },
+          { label: "Total Reimbursements", value: summary?.totalReimbursements || 0 },
         ].map((stat, i) => (
           <Card key={i} className="border-none bg-white/50 backdrop-blur-md dark:bg-slate-900/50">
             <CardContent className="p-4">
@@ -244,113 +247,18 @@ export default function InvoicePage() {
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search invoices..."
-              value={(table.getColumn("invoiceNumber")?.getFilterValue() as string) ?? ""}
-              onChange={(e) => table.getColumn("invoiceNumber")?.setFilterValue(e.target.value)}
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-9 bg-white/50 backdrop-blur-md dark:bg-slate-900/50"
             />
           </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[140px]"><SelectValue placeholder="All Types" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="INCOME">Income</SelectItem>
-              <SelectItem value="EXPENSE">Expense</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]"><SelectValue placeholder="All Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="SENT">Sent</SelectItem>
-              <SelectItem value="PAID">Paid</SelectItem>
-              <SelectItem value="OVERDUE">Overdue</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
         <div className="rounded-md border bg-white/40 backdrop-blur-md dark:bg-slate-900/40">
           <DataTable table={table} columns={columns} />
         </div>
         <DataTablePagination table={table} />
       </div>
-
-      {/* Delete Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Invoice</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete invoice {deleteTarget?.invoiceNumber}? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteInvoice.isPending}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Invoice Detail Sheet */}
-      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Invoice {selectedInvoice?.invoiceNumber}</SheetTitle>
-            <SheetDescription>{selectedInvoice?.project?.name}</SheetDescription>
-          </SheetHeader>
-          {selectedInvoice && (
-            <div className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Type</p>
-                  <Badge variant={selectedInvoice.type === "INCOME" ? "default" : "secondary"}>{selectedInvoice.type}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge className={STATUS_COLORS[selectedInvoice.status] || ""} variant="secondary">{selectedInvoice.status}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Due Date</p>
-                  <p className="text-sm font-medium">{new Date(selectedInvoice.dueDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Category</p>
-                  <p className="text-sm font-medium">{selectedInvoice.category?.name || "-"}</p>
-                </div>
-              </div>
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="tabular-nums">{formatCurrency(selectedInvoice.subtotal)}</span>
-                </div>
-                {selectedInvoice.tax && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax ({selectedInvoice.tax.name})</span>
-                    <span className="tabular-nums">{formatCurrency(selectedInvoice.taxAmount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm font-bold border-t pt-2">
-                  <span>Total</span>
-                  <span className="tabular-nums">{formatCurrency(selectedInvoice.total)}</span>
-                </div>
-              </div>
-              {selectedInvoice.vendor && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Vendor</p>
-                  <p className="text-sm font-medium">{selectedInvoice.vendor.name}</p>
-                </div>
-              )}
-              {selectedInvoice.notes && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Notes</p>
-                  <p className="text-sm">{selectedInvoice.notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

@@ -29,6 +29,7 @@ export interface FinanceDashboard {
     total: number;
   }[];
   reimbursementsByStatus: { status: string; count: number; total: number }[];
+  expensesByCategory: { name: string; amount: number }[];
 }
 
 export interface ProjectDashboard {
@@ -67,17 +68,17 @@ export function useDashboardSummary() {
   });
 }
 
-export function useFinanceDashboard() {
+export function useFinanceDashboard(timeRange?: string) {
   return useQuery<FinanceDashboard>({
-    queryKey: ["dashboard", "finance"],
-    queryFn: () => api.get("/dashboard/finance").then((r) => r.data),
+    queryKey: ["dashboard", "finance", timeRange],
+    queryFn: () => api.get("/dashboard/finance", { params: { timeRange } }).then((r) => r.data),
   });
 }
 
 export function useProjectDashboard() {
   return useQuery<ProjectDashboard>({
     queryKey: ["dashboard", "projects"],
-    queryFn: () => api.get("/dashboard/projects").then((r) => r.data),
+    queryFn: () => api.get("/dashboard/projects").then((r: any) => r.data),
   });
 }
 
